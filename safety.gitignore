@@ -1,0 +1,10 @@
+# Ignore Node & Composer folders
+node_modules/
+vendor/
+
+# Ignore Environment files (passwords)
+.env
+
+# Ignore Laravel compiled files
+storage/*.key
+/public/storage
