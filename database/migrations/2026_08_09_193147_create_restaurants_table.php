@@ -9,8 +9,8 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-        public function up() {
-    Schema::create('restaurants', function (Blueprint $table) {
+    public function up() {
+    Schema::create('restaurants', function ($table) {
         $table->id();
         $table->string('restaurant_name');
         $table->string('email_primary')->unique();
@@ -22,6 +22,7 @@ return new class extends Migration
         $table->timestamps();
     });
 }
+
     /**
      * Reverse the migrations.
      */

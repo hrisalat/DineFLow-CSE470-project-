@@ -9,19 +9,20 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
-    {
-        Schema::create('restaurants_table_updated', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
-    }
+        public function up() {
+    Schema::table('users', function ($table) {
+        $table->unsignedBigInteger('restaurant_id')->nullable();
+        $table->string('role')->default('owner');
+    });
+}
 
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('restaurants_table_updated');
+        Schema::table('users', function (Blueprint $table) {
+            //
+        });
     }
 };
