@@ -134,4 +134,30 @@ class AuthController extends Controller
         }
         return response()->json(['status' => 'error', 'message' => 'Invalid Email or Password'], 401);
     }
+
+
+public function customerRegister(Request $request) {
+        $user = \App\Models\User::create([
+            'name' => $request->name,
+            'email' => $request->phone . "@dineflow.com", // Using phone as a unique identifier
+            'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+            'role' => 'customer',
+            'restaurant_id' => $request->restaurant_id,
+        ]);
+        // We add a phone column to users if you haven't yet, or store it in name
+        return response()->json(['status' => 'success', 'user' => $user]);
+    }
+
+    // Customer Login
+    public function customerLogin(Request $request) {
+        // Logic to login via phone/password
+        $user = \App\Models\User::where('role', 'customer')
+            ->where('email', $request->phone . "@dineflow.com")
+            ->first();
+
+        if ($user && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+            return response()->json(['status' => 'success', 'user' => $user]);
+        }
+        return response()->json(['status' => 'error', 'message' => 'Invalid Phone or Password'], 401);
+    }
 }

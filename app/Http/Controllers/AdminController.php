@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Employee;
 use Illuminate\Support\Str;
+use App\Models\Restaurant;
+use App\Models\User;
 
 class AdminController extends Controller
 {
@@ -90,4 +92,44 @@ public function deleteEmployee($id)
         return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
     }
 }
+
+ public function updateRestaurant(Request $request, $id)
+    {
+        try {
+            $restaurant = Restaurant::findOrFail($id);
+
+            // 1. Update Restaurant Table
+            $restaurant->update([
+                'restaurant_name' => $request->name,
+                'email_primary'   => $request->email1,
+                'email_secondary' => $request->email2,
+                'phone'           => $request->phone,
+                'registration_no' => $request->regNo,
+                'accent_color'    => $request->color,
+            ]);
+
+            // 2. Handle Logo Upload if provided
+            if ($request->hasFile('logo')) {
+                $path = $request->file('logo')->store('logos', 'public');
+                $restaurant->logo = $path;
+                $restaurant->save();
+            }
+
+            // 3. Update the Owner User (matching the primary email)
+            $owner = User::where('restaurant_id', $id)->where('role', 'owner')->first();
+            if ($owner) {
+                $owner->update([
+                    'name'  => $request->name . " Owner",
+                    'email' => $request->email1,
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'restaurant' => $restaurant
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
 }
