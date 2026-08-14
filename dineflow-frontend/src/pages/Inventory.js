@@ -134,7 +134,7 @@ const Inventory = () => {
                                         <td style={pad}>{item.expiry_date}</td>
                                         <td style={pad}>৳{item.purchase_price}</td>
                                         <td style={pad}>
-                                            <button onClick={() => handleDelete(item.id)} style={{ background: '#ff4d4d', color: 'white', border: 'none', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', fontSize: '14px' }}>❌</button>
+                                            <button onClick={() => handleDelete(item.id)} style={{ background: '', color: 'white', border: 'none', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', fontSize: '14px' }}>❌</button>
                                         </td>
                                     </tr>
                                 ))

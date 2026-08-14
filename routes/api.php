@@ -36,3 +36,22 @@ Route::post('/customer/login', [AuthController::class, 'customerLogin']);
 Route::get('/inventory/{res_id}', [InventoryController::class, 'index']);
 Route::post('/inventory', [InventoryController::class, 'store']);
 Route::delete('/inventory/{id}', [InventoryController::class, 'destroy']);
+
+use App\Http\Controllers\MenuController;
+
+
+
+
+
+// Categories
+Route::post('/menu/category', [MenuController::class, 'storeCategory']);
+Route::post('/menu/category/update/{id}', [MenuController::class, 'updateCategory']);
+Route::delete('/menu/category/{id}', [MenuController::class, 'destroyCategory']);
+
+// Menu Items
+Route::get('/menu/{res_id}', [MenuController::class, 'index']);
+Route::post('/menu/item', [MenuController::class, 'storeMenuItem']);
+Route::post('/menu/item/update/{id}', [MenuController::class, 'updateMenuItem']);
+Route::delete('/menu/item/{id}', [MenuController::class, 'destroyMenuItem']);
+
+Route::post('/restaurant/toggle-website/{id}', [AdminController::class, 'toggleWebsite']);

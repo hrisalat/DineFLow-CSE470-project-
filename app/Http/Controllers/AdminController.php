@@ -132,4 +132,11 @@ public function deleteEmployee($id)
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    public function toggleWebsite(Request $request, $id) {
+    $restaurant = Restaurant::find($id);
+    $restaurant->is_website_active = $request->status;
+    $restaurant->save();
+    return response()->json(['status' => 'success', 'website_active' => $restaurant->is_website_active]);
+}
 }

@@ -10,22 +10,24 @@ const CustomerAuth = () => {
     const [isSignup, setIsSignup] = useState(false);
     const [form, setForm] = useState({ name: '', phone: '', password: '' });
 
+    // src/pages/Auth/CustomerAuth.js
+
     const handleAuth = async (e) => {
         e.preventDefault();
         try {
             const url = isSignup ? 'http://localhost:8000/api/customer/register' : 'http://localhost:8000/api/customer/login';
-            
-            // Note: We send restaurant_id so customers are linked to this specific shop
             const payload = { ...form, restaurant_id: res.id };
             const result = await axios.post(url, payload);
-
+            
             if (result.data.status === 'success') {
+                // FIX: Use setItem without clearing existing 'restaurant' data
                 localStorage.setItem('customer', JSON.stringify(result.data.user));
-                alert(isSignup ? "Account Created! Welcome." : "Login Successful!");
-                navigate('/public-view');
+                
+                alert(isSignup ? "Account Created!" : "Logged In!");
+                navigate('/customer-website'); // Navigate to the website
             }
-        } catch (err) {
-            alert(err.response?.data?.message || "Authentication Failed");
+        } catch (err) { 
+            alert("Auth Failed: Check your phone number or password."); 
         }
     };
 

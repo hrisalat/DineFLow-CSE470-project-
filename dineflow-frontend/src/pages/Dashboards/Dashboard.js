@@ -4,31 +4,81 @@ import TopBar from '../../components/TopBar';
 import { styles } from '../../styles/theme';
 
 const Dashboard = () => {
-    const navigate = useNavigate(); // Initialize navigate
-    const res = JSON.parse(localStorage.getItem('restaurant')) || {};
+    const navigate = useNavigate();
+    const res = JSON.parse(localStorage.getItem('restaurant')) || { accent_color: '#6366f1' };
+
+    // Clean styles for this specific page
+    const dashboardStyles = {
+        mainContainer: {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: 'calc(100vh - 70px)', // Full screen minus TopBar height
+            gap: '40px',
+            padding: '20px',
+            flexWrap: 'wrap'
+        },
+        card: {
+            width: '300px',
+            height: '200px',
+            backgroundColor: res.accent_color,
+            color: 'white',
+            borderRadius: '15px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+            transition: 'transform 0.3s, filter 0.3s',
+            textAlign: 'center',
+            padding: '20px'
+        },
+        cardTitle: {
+            fontSize: '24px',
+            fontWeight: 'bold',
+            fontFamily: 'Verdana',
+            margin: 0
+        }
+    };
 
     return (
         <div style={styles.app}>
             <TopBar role="Owner" />
-            <div style={styles.container}>
-                <div style={{ display: 'flex', gap: '30px', marginTop: '50px' }}>
-                    
-                    {/* FIXED: Connected Public View Button */}
-                    <div 
-                        style={{ ...styles.card, textAlign: 'center', cursor: 'pointer', background: res.accent_color, color: 'white', width: '250px' }} 
-                        onClick={() => navigate('/public-view')}
-                    >
-                        <h2 style={{ margin: 0 }}>Public View</h2>
-                    </div>
-
-                    <div 
-                        style={{ ...styles.card, textAlign: 'center', cursor: 'pointer', background: res.accent_color, color: 'white', width: '250px' }} 
-                        onClick={() => navigate('/employee-view')}
-                    >
-                        <h2 style={{ margin: 0 }}>Employee View</h2>
-                    </div>
-
+            
+            <div style={dashboardStyles.mainContainer}>
+                
+                {/* KIOSK / PUBLIC VIEW CARD */}
+                <div 
+                    style={dashboardStyles.card}
+                    onClick={() => navigate('/kiosk')}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.filter = 'brightness(1.1)';
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.filter = 'brightness(1)';
+                    }}
+                >
+                    <h2 style={dashboardStyles.cardTitle}>Kiosk Mode</h2>
                 </div>
+
+                {/* EMPLOYEE VIEW CARD */}
+                <div 
+                    style={dashboardStyles.card}
+                    onClick={() => navigate('/employee-view')}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.filter = 'brightness(1.1)';
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.filter = 'brightness(1)';
+                    }}
+                >
+                    <h2 style={dashboardStyles.cardTitle}>Employee View</h2>
+                </div>
+
             </div>
         </div>
     );
