@@ -23,6 +23,7 @@ import RoleSelection from './pages/RoleSelection';
 import KioskMode from './pages/KioskMode';
 import CustomerWebsite from './pages/CustomerWebsite';
 import MenuManagement from './pages/MenuManagement';
+import Checkout from './pages/Checkout';
 
 function App() {
      const res = JSON.parse(localStorage.getItem('restaurant')) || {};
@@ -68,7 +69,14 @@ function App() {
                     <Route path="/inventory" element={<Inventory />} />
               
                 <Route path="/menu-management" element={<MenuManagement role={res.position ? (res.position.toLowerCase() === 'manager' ? 'Manager' : 'Staff') : 'Admin'} />} />
+                
+                                    // Management/Kiosk route
+                    <Route path="/checkout-kiosk" element={<Checkout mode="kiosk" />} />
+
+                    // Website route
+                    <Route path="/checkout-public" element={<Checkout mode="website" />} />
                   </Routes>
+
             </div>
         </Router>
     );

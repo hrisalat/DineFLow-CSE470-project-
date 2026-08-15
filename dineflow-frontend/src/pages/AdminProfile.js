@@ -107,7 +107,7 @@ const AdminProfile = () => {
                         <label style={lbl}>Phone Number</label>
                         <input style={styles.input} value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required />
                         
-                        <label style={lbl}>Registration Number</label>
+                        <label style={lbl}>Address</label>
                         <input style={styles.input} value={formData.regNo} onChange={e => setFormData({ ...formData, regNo: e.target.value })} required />
                         
                         <label style={lbl}>Theme Accent Color</label>

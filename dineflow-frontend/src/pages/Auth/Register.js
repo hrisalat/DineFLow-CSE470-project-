@@ -47,7 +47,7 @@ const Register = () => {
                     <input style={styles.input} type="email" placeholder="Primary Email" onChange={e => setFormData({ ...formData, email1: e.target.value })} required />
                     <input style={styles.input} type="password" placeholder="Password" onChange={e => setFormData({ ...formData, password: e.target.value })} required />
                     <input style={styles.input} placeholder="Phone" onChange={e => setFormData({ ...formData, phone: e.target.value })} required />
-                    <input style={styles.input} placeholder="Reg Number" onChange={e => setFormData({ ...formData, regNo: e.target.value })} required />
+                    <input style={styles.input} placeholder="Address of the resturant" onChange={e => setFormData({ ...formData, regNo: e.target.value })} required />
                     
                     <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginTop: '10px' }}>Choose your Brand Color:</label>
                     <input 
