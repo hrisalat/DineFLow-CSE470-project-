@@ -81,7 +81,9 @@ class MenuController extends Controller
         $item->category_id = $request->category_id;
         $item->name = $request->name;
         $item->description = $request->description ?? ''; // Prevent null inheritance
-        $item->tag = $request->tag;
+        // Inside saveItemLogic
+        $item->tags = json_decode($request->tags, true); // Decode the stringified array from React
+        $item->save();
         $item->price_type = $request->price_type;
 
         // Handle Pricing Logic

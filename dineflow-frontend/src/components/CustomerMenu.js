@@ -8,6 +8,7 @@ const CustomerMenu = () => {
     const [sortOrder, setSortOrder] = useState('default'); 
     const [selectedOptions, setSelectedOptions] = useState({}); 
     const [quantities, setQuantities] = useState({}); 
+    const [customInstructions, setCustomInstructions] = useState({}); // State for customizable text boxes
 
     const fetchMenu = useCallback(async () => {
         if (!res.id) return;
@@ -73,22 +74,34 @@ const CustomerMenu = () => {
                                 {cat.name}
                             </h2>
                             
-                            {/* FIXED: Changed justifyContent from 'center' to 'flex-start' */}
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '25px', justifyContent: 'flex-start', marginTop: '20px' }}>
                                 {filteredItems.map(item => {
                                     const isGrid = !!item.image;
                                     const currentStyle = isGrid ? cardStyle : listRowStyle;
+                                    
+                                    // Parse tags (handles both string and array)
+                                    const itemTags = safeParse(item.tags);
+                                    const isCustomizable = itemTags.includes('Customizable');
 
                                     return (
                                         <div key={item.id} style={currentStyle}>
                                             {item.image && <img src={`http://localhost:8000/storage/${item.image}`} style={imgStyle} alt={item.name} />}
                                             
                                             <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column' }}>
+                                                {/* 1. NAME */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                     <strong style={{ fontSize: '17px' }}>{item.name}</strong>
-                                                    {item.tag && <span style={{ ...tagStyle, backgroundColor: res.accent_color }}>{item.tag}</span>}
                                                 </div>
-                                                <p style={{ fontSize: '11px', color: '#777', margin: '10px 0' }}>{item.description}</p>
+
+                                                {/* 2. TAGS (Under Name) - Up to 3 */}
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '8px 0' }}>
+                                                    {itemTags.map((tag, idx) => (
+                                                        <span key={idx} style={{ ...tagStyle, backgroundColor: res.accent_color }}>{tag}</span>
+                                                    ))}
+                                                </div>
+
+                                                {/* 3. DESCRIPTION (Under Tags) */}
+                                                <p style={{ fontSize: '11px', color: '#777', margin: '5px 0 15px 0' }}>{item.description}</p>
                                                 
                                                 <div style={{ marginTop: 'auto' }}>
                                                     {item.price_type === 'fixed' ? (
@@ -114,6 +127,19 @@ const CustomerMenu = () => {
                                                                     </div>
                                                                 );
                                                             })}
+                                                        </div>
+                                                    )}
+
+                                                    {/* 4. CUSTOMIZABLE BOX (Conditional) */}
+                                                    {isCustomizable && (
+                                                        <div style={{ marginBottom: '15px' }}>
+                                                            <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', display: 'block', marginBottom: '5px' }}>CUSTOMIZABLE</label>
+                                                            <textarea 
+                                                                placeholder="Special instructions..." 
+                                                                style={customTextArea} 
+                                                                value={customInstructions[item.id] || ''}
+                                                                onChange={(e) => setCustomInstructions({...customInstructions, [item.id]: e.target.value})}
+                                                            />
                                                         </div>
                                                     )}
 
@@ -145,6 +171,7 @@ const CustomerMenu = () => {
     );
 };
 
+// --- STYLES ---
 const filterBarContainer = { display: 'flex', gap: '15px', marginBottom: '40px', background: 'white', padding: '15px', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.03)' };
 const searchInput = { flex: 3, padding: '12px', borderRadius: '8px', border: '1px solid #eee', fontFamily: 'Verdana', fontSize: '14px' };
 const sortSelect = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #eee', fontFamily: 'Verdana', fontSize: '14px', cursor: 'pointer' };
@@ -153,7 +180,8 @@ const listRowStyle = { width: '100%', background: '#fff', padding: '15px', borde
 const imgStyle = { width: '100%', height: '160px', objectFit: 'cover' };
 const tagStyle = { color: 'white', fontSize: '8px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '10px', textTransform: 'uppercase' };
 const variationBadge = { fontSize: '10px', padding: '6px 10px', borderRadius: '50px', border: '1px solid #ddd', cursor: 'pointer', transition: '0.2s', fontWeight: 'bold' };
-const qtyInput = { width: '50px', padding: '6px', borderRadius: '6px', border: '1px solid #eee', textAlign: 'center', fontSize: '13px' };
+const qtyInput = { width: '50px', padding: '6px', borderRadius: '6px', border: '1px solid #eee', textAlign: 'center', fontSize: '13px', fontFamily: 'Verdana' };
+const customTextArea = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #eee', fontSize: '12px', fontFamily: 'Verdana', boxSizing: 'border-box', resize: 'none', height: '60px' };
 const addToCartBtn = { width: '100%', color: 'white', border: 'none', padding: '10px', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer', marginTop: '12px', fontSize: '11px' };
 
 export default CustomerMenu;

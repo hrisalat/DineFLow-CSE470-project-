@@ -12,8 +12,9 @@ const MenuManagement = ({ role }) => {
 
     // Form States
     const [catForm, setCatForm] = useState({ name: '', description: '' });
-    const emptyItem = { name: '', description: '', price: '', tag: '', price_type: '', image: null };
+    const emptyItem = { name: '', description: '', price: '', price_type: '', image: null };
     const [itemForm, setItemForm] = useState(emptyItem);
+    const [tagInputs, setTagInputs] = useState(['', '', '']); // State for 3 tags
     const [priceOptions, setPriceOptions] = useState([{ qty: '', price: '' }]);
     const [ingredients, setIngredients] = useState([{ inventory_id: '', quantity: '' }]);
 
@@ -24,15 +25,13 @@ const MenuManagement = ({ role }) => {
     const [editingItemId, setEditingItemId] = useState(null);
     const [selectedCatId, setSelectedCatId] = useState(null);
 
-    // --- HELPER: SAFE JSON PARSE ---
+    // --- HELPERS ---
     const safeParse = (data) => {
         if (!data) return [];
         if (typeof data === 'object') return data;
-        try { return JSON.parse(data); } 
-        catch (e) { return []; }
+        try { return JSON.parse(data); } catch (e) { return []; }
     };
 
-    // --- DATA FETCHING ---
     const fetchMenu = useCallback(async () => {
         if (!res.id) return;
         try {
@@ -49,40 +48,14 @@ const MenuManagement = ({ role }) => {
         } catch (err) { console.error("Inventory fetch failed"); }
     }, [res.id]);
 
-    useEffect(() => { 
-        fetchMenu(); 
-        fetchInventory(); 
-    }, [fetchMenu, fetchInventory]);
+    useEffect(() => { fetchMenu(); fetchInventory(); }, [fetchMenu, fetchInventory]);
 
-    // --- CATEGORY HANDLERS ---
-    const openAddCategory = () => {
-        setIsEditingCat(false);
-        setCatForm({ name: '', description: '' });
-        setShowCatModal(true);
-    };
-
-    const openEditCategory = (cat) => {
-        setIsEditingCat(true);
-        setEditingCatId(cat.id);
-        setCatForm({ name: cat.name, description: cat.description });
-        setShowCatModal(true);
-    };
-
-    const handleCatSubmit = async (e) => {
-        e.preventDefault();
-        const url = isEditingCat ? `http://localhost:8000/api/menu/category/update/${editingCatId}` : `http://localhost:8000/api/menu/category`;
-        try {
-            await axios.post(url, { ...catForm, restaurant_id: res.id });
-            setShowCatModal(false);
-            fetchMenu();
-        } catch (err) { alert("Failed to save category"); }
-    };
-
-    // --- ITEM HANDLERS ---
+    // --- HANDLERS ---
     const openAddItem = (catId) => {
         setIsEditingItem(false);
         setSelectedCatId(catId);
         setItemForm(emptyItem);
+        setTagInputs(['', '', '']); // Reset tags to None
         setPriceOptions([{ qty: '', price: '' }]);
         setIngredients([{ inventory_id: '', quantity: '' }]);
         setShowItemModal(true);
@@ -96,12 +69,16 @@ const MenuManagement = ({ role }) => {
             name: item.name,
             description: item.description || '',
             price: item.price || '',
-            tag: item.tag || '',
             price_type: item.price_type || 'fixed',
             image: null 
         });
-        const parsedPrices = safeParse(item.price_options);
-        setPriceOptions(parsedPrices.length > 0 ? parsedPrices : [{ qty: '', price: '' }]);
+        
+        // Handle tags: ensuring it's an array of 3 strings
+        const savedTags = safeParse(item.tags);
+        const paddedTags = [...savedTags, '', '', ''].slice(0, 3);
+        setTagInputs(paddedTags);
+
+        setPriceOptions(safeParse(item.price_options).length > 0 ? safeParse(item.price_options) : [{ qty: '', price: '' }]);
         setIngredients(item.ingredients?.length > 0 
             ? item.ingredients.map(ing => ({ inventory_id: ing.inventory_id, quantity: ing.quantity_needed }))
             : [{ inventory_id: '', quantity: '' }]
@@ -117,8 +94,11 @@ const MenuManagement = ({ role }) => {
         data.append('category_id', selectedCatId);
         data.append('name', itemForm.name);
         data.append('description', itemForm.description || '');
-        data.append('tag', itemForm.tag);
         data.append('price_type', itemForm.price_type);
+        
+        // Filter out empty tags and append as JSON
+        const filteredTags = tagInputs.filter(t => t !== '');
+        data.append('tags', JSON.stringify(filteredTags));
 
         if (itemForm.price_type === 'fixed') data.append('price', itemForm.price);
         else data.append('price_options', JSON.stringify(priceOptions));
@@ -134,11 +114,14 @@ const MenuManagement = ({ role }) => {
         } catch (err) { alert("Error saving item"); }
     };
 
-    const deleteItem = async (id) => {
-        if (window.confirm("Delete this item?")) {
-            await axios.delete(`http://localhost:8000/api/menu/item/${id}`);
+    const handleCatSubmit = async (e) => {
+        e.preventDefault();
+        const url = isEditingCat ? `http://localhost:8000/api/menu/category/update/${editingCatId}` : `http://localhost:8000/api/menu/category`;
+        try {
+            await axios.post(url, { ...catForm, restaurant_id: res.id });
+            setShowCatModal(false);
             fetchMenu();
-        }
+        } catch (err) { alert("Failed to save category"); }
     };
 
     return (
@@ -147,76 +130,66 @@ const MenuManagement = ({ role }) => {
             <div style={{ ...styles.container, padding: '100px 40px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '1100px' }}>
                     <h1 style={{ fontFamily: 'Verdana' }}>Menu Management</h1>
-                    <button onClick={openAddCategory} style={{ ...styles.button, width: 'auto', padding: '10px 25px', backgroundColor: res.accent_color }}>+ ADD CATEGORY</button>
+                    <button onClick={() => { setIsEditingCat(false); setCatForm({name:'', description:''}); setShowCatModal(true); }} style={{ ...styles.button, width: 'auto', padding: '10px 25px', backgroundColor: res.accent_color, borderRadius: '50px' }}>+ ADD CATEGORY</button>
                 </div>
 
-                {categories.length === 0 ? (
-                    <div style={{marginTop: '50px', textAlign: 'center', color: '#888'}}>
-                        <p>No categories found. Click "+ Add Category" to get started.</p>
-                    </div>
-                ) : (
-                    categories.map(cat => (
-                        <div key={cat.id} style={{ ...styles.wideCard, marginTop: '30px', borderLeft: `8px solid ${res.accent_color}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <h2 style={{ margin: 0 }}>{cat.name}</h2>
-                                    <p style={{ fontSize: '13px', color: '#666' }}>{cat.description}</p>
-                                </div>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button onClick={() => openEditCategory(cat)} style={editBtnStyle}>✏️ EDIT</button>
-                                    <button onClick={() => openAddItem(cat.id)} style={{ ...styles.button, width: 'auto', padding: '5px 15px', fontSize: '11px', backgroundColor: res.accent_color }}>+ ADD ITEM</button>
-                                    <button onClick={() => axios.delete(`http://localhost:8000/api/menu/category/${cat.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
-                                </div>
+                {categories.map(cat => (
+                    <div key={cat.id} style={{ ...styles.wideCard, marginTop: '30px', borderLeft: `8px solid ${res.accent_color}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h2 style={{ margin: 0 }}>{cat.name}</h2>
+                                <p style={{ fontSize: '13px', color: '#666' }}>{cat.description}</p>
                             </div>
-
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '20px' }}>
-                                {cat.items?.map(item => (
-                                    <div key={item.id} style={item.image ? cardStyle : listRowStyle}>
-                                        {item.image && <img src={`http://localhost:8000/storage/${item.image}`} style={imgStyle} alt="" />}
-                                        <div style={{ flex: 1, padding: '15px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <strong style={{ fontSize: '16px' }}>{item.name}</strong>
-                                                {item.tag && <span style={{ ...tagStyle, backgroundColor: res.accent_color }}>{item.tag}</span>}
-                                            </div>
-                                            <p style={{ fontSize: '12px', color: '#777', margin: '8px 0' }}>{item.description || "No description."}</p>
-
-                                            <div style={{ marginTop: '10px' }}>
-                                                {item.price_type === 'fixed' ? (
-                                                    <span style={{ fontWeight: 'bold', color: res.accent_color }}>৳{item.price}</span>
-                                                ) : (
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                                                        {safeParse(item.price_options).map((opt, idx) => (
-                                                            <span key={idx} style={variationBadge}>{opt.qty}: ৳{opt.price}</span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                                <button onClick={() => openEditItem(item, cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: res.accent_color, fontSize: '12px', fontWeight: 'bold' }}>✏️ Edit</button>
-                                                <button onClick={() => deleteItem(item.id)} style={delBtnWhite}>❌</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button onClick={() => { setIsEditingCat(true); setEditingCatId(cat.id); setCatForm({name: cat.name, description: cat.description}); setShowCatModal(true); }} style={editBtnStyle}>✏️ EDIT</button>
+                                <button onClick={() => openAddItem(cat.id)} style={{ ...styles.button, width: 'auto', padding: '5px 15px', fontSize: '11px', backgroundColor: res.accent_color, borderRadius: '50px' }}>+ ADD ITEM</button>
+                                <button onClick={() => window.confirm("Delete category?") && axios.delete(`http://localhost:8000/api/menu/category/${cat.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
                             </div>
                         </div>
-                    ))
-                )}
-            </div>
 
-            {/* CATEGORY MODAL */}
-            {showCatModal && (
-                <div style={modalOverlay}>
-                    <form style={styles.card} onSubmit={handleCatSubmit}>
-                        <h3>{isEditingCat ? 'Edit Category' : 'New Category'}</h3>
-                        <input placeholder="Name" style={styles.input} value={catForm.name} onChange={e => setCatForm({...catForm, name: e.target.value})} required />
-                        <textarea placeholder="Description" style={styles.input} value={catForm.description} onChange={e => setCatForm({...catForm, description: e.target.value})} />
-                        <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color }}>SAVE</button>
-                        <button type="button" onClick={() => setShowCatModal(false)} style={{ ...styles.button, background: '#444' }}>CANCEL</button>
-                    </form>
-                </div>
-            )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '20px' }}>
+                            {cat.items?.map(item => (
+                                <div key={item.id} style={item.image ? cardStyle : listRowStyle}>
+                                    {item.image && <img src={`http://localhost:8000/storage/${item.image}`} style={imgStyle} alt="" />}
+                                    <div style={{ flex: 1, padding: '15px' }}>
+                                        
+                                        {/* LAYOUT: NAME */}
+                                        <strong style={{ fontSize: '16px', display: 'block' }}>{item.name}</strong>
+
+                                        {/* LAYOUT: TAGS UNDER NAME */}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '8px 0' }}>
+                                            {safeParse(item.tags).map((t, idx) => (
+                                                <span key={idx} style={{ ...tagStyle, backgroundColor: res.accent_color }}>{t}</span>
+                                            ))}
+                                        </div>
+
+                                        {/* LAYOUT: DESCRIPTION UNDER TAGS */}
+                                        <p style={{ fontSize: '11px', color: '#777', marginBottom: '10px' }}>{item.description || "No description."}</p>
+
+                                        {/* LAYOUT: PRICE */}
+                                        <div style={{ marginTop: 'auto' }}>
+                                            {item.price_type === 'fixed' ? (
+                                                <span style={{ fontWeight: 'bold', color: res.accent_color }}>৳{item.price}</span>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                    {safeParse(item.price_options).map((opt, idx) => (
+                                                        <span key={idx} style={variationBadge}>{opt.qty}: ৳{opt.price}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                            <button onClick={() => openEditItem(item, cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: res.accent_color, fontSize: '12px', fontWeight: 'bold' }}>✏️ Edit</button>
+                                            <button onClick={() => window.confirm("Delete item?") && axios.delete(`http://localhost:8000/api/menu/item/${item.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
 
             {/* ITEM MODAL */}
             {showItemModal && (
@@ -230,6 +203,31 @@ const MenuManagement = ({ role }) => {
                         <label style={lbl}>Description</label>
                         <textarea style={styles.input} value={itemForm.description} onChange={e => setItemForm({...itemForm, description: e.target.value})} />
 
+                        {/* TAG DROPDOWNS (Up to 3) */}
+                        <label style={lbl}>Tags (Up to 3)</label>
+                        <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+                            {[0, 1, 2].map(i => (
+                                <select 
+                                    key={i} 
+                                    style={{ ...styles.input, flex: 1, margin: 0 }} 
+                                    value={tagInputs[i]} 
+                                    onChange={e => {
+                                        let newTags = [...tagInputs];
+                                        newTags[i] = e.target.value;
+                                        setTagInputs(newTags);
+                                    }}
+                                >
+                                    <option value="">None</option>
+                                    <option value="new">New</option>
+                                    <option value="best-selling">Best Selling</option>
+                                    <option value="spicy">Spicy</option>
+                                    <option value="extra-spicy">Extra Spicy</option>
+                                    <option value="vegetarian">Vegetarian</option>
+                                    <option value="Customizable">Customizable</option>
+                                </select>
+                            ))}
+                        </div>
+
                         <div style={{display:'flex', gap: '10px'}}>
                             <div style={{flex:1}}>
                                 <label style={lbl}>Price Type</label>
@@ -237,17 +235,6 @@ const MenuManagement = ({ role }) => {
                                     <option value="">Select Type</option>
                                     <option value="fixed">Fixed Price</option>
                                     <option value="quantity">Quantity Price</option>
-                                </select>
-                            </div>
-                            <div style={{flex:1}}>
-                                <label style={lbl}>Tag (Optional)</label>
-                                <select style={styles.input} value={itemForm.tag} onChange={e => setItemForm({...itemForm, tag: e.target.value})}>
-                                    <option value="">None</option>
-                                    <option value="new">New</option>
-                                    <option value="best-selling">Best Selling</option>
-                                    <option value="spicy">Spicy</option>
-                                    <option value="extra-spicy">Extra Spicy</option>
-                                    <option value="vegetarian">Vegetarian</option>
                                 </select>
                             </div>
                         </div>
@@ -288,11 +275,24 @@ const MenuManagement = ({ role }) => {
                         ))}
                         <button type="button" onClick={() => setIngredients([...ingredients, {inventory_id:'', quantity:''}])} style={addMoreBtn}>+ Add Ingredient</button>
 
-                        <label style={lbl}>Image {isEditingItem ? '(Leave blank to keep current)' : '(Mandatory)'}</label>
+                        <label style={lbl}>Image {isEditingItem ? '(Optional if keeping old)' : '(Mandatory)'}</label>
                         <input type="file" style={styles.input} onChange={e => setItemForm({...itemForm, image: e.target.files[0]})} required={!isEditingItem} />
 
-                        <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color, marginTop: '20px' }}>SAVE ITEM</button>
-                        <button type="button" onClick={() => setShowItemModal(false)} style={{ ...styles.button, background: '#444' }}>CANCEL</button>
+                        <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color, borderRadius: '50px' }}>SAVE ITEM</button>
+                        <button type="button" onClick={() => setShowItemModal(false)} style={{ ...styles.button, background: '#444', borderRadius: '50px' }}>CANCEL</button>
+                    </form>
+                </div>
+            )}
+
+            {/* CATEGORY MODAL */}
+            {showCatModal && (
+                <div style={modalOverlay}>
+                    <form style={styles.card} onSubmit={handleCatSubmit}>
+                        <h3>{isEditingCat ? 'Edit Category' : 'New Category'}</h3>
+                        <input placeholder="Name" style={styles.input} value={catForm.name} onChange={e => setCatForm({...catForm, name: e.target.value})} required />
+                        <textarea placeholder="Description" style={styles.input} value={catForm.description} onChange={e => setCatForm({...catForm, description: e.target.value})} />
+                        <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color, borderRadius: '50px' }}>SAVE</button>
+                        <button type="button" onClick={() => setShowCatModal(false)} style={{ ...styles.button, background: '#444', borderRadius: '50px' }}>CANCEL</button>
                     </form>
                 </div>
             )}
@@ -300,8 +300,9 @@ const MenuManagement = ({ role }) => {
     );
 };
 
-const delBtnWhite = { background: 'white', color: '#ff4d4d', border: '1px solid #eee', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', fontSize: '14px' };
-const editBtnStyle = { background: '#eee', border: '1px solid #ccc', cursor: 'pointer', padding: '5px 12px', borderRadius: '4px', fontSize: '11px', fontFamily: 'Verdana', fontWeight: 'bold' };
+// Styles
+const delBtnWhite = { background: 'white', color: '#ff4d4d', border: '1px solid #eee', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', fontSize: '12px' };
+const editBtnStyle = { background: '#eee', border: '1px solid #ccc', cursor: 'pointer', padding: '5px 12px', borderRadius: '50px', fontSize: '11px', fontFamily: 'Verdana', fontWeight: 'bold' };
 const tagStyle = { color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '12px', textTransform: 'uppercase' };
 const variationBadge = { fontSize: '11px', background: '#f0f0f0', padding: '3px 7px', borderRadius: '4px', border: '1px solid #ddd' };
 const cardStyle = { width: '260px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex', flexDirection: 'column' };
