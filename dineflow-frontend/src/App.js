@@ -13,8 +13,8 @@ import ExitPublicAuth from './pages/Auth/ExitPublicAuth';
 import CustomerAuth from './pages/Auth/CustomerAuth';
 
 import Dashboard from './pages/Dashboards/Dashboard';
-import ManagerDashboard from './pages/Dashboards/ManagerDashboard';
-import StaffDashboard from './pages/Dashboards/StaffDashboard';
+import ManagerDashboard from './pages/Dashboards/ManagerDashboard'; // Imported ONCE
+import StaffDashboard from './pages/Dashboards/StaffDashboard';     // Imported ONCE
 
 import EmployeeDirectory from './pages/EmployeeDirectory';
 import AdminProfile from './pages/AdminProfile';
@@ -24,9 +24,12 @@ import KioskMode from './pages/KioskMode';
 import CustomerWebsite from './pages/CustomerWebsite';
 import MenuManagement from './pages/MenuManagement';
 import Checkout from './pages/Checkout';
+import PurchaseHistory from './pages/PurchaseHistory';
+import ReviewPage from './pages/ReviewPage';
 
 function App() {
-     const res = JSON.parse(localStorage.getItem('restaurant')) || {};
+    const res = JSON.parse(localStorage.getItem('restaurant')) || {};
+
     return (
         <Router>
             <div style={styles.app}>
@@ -53,30 +56,25 @@ function App() {
                     <Route path="/staff-auth" element={<EmployeeAuth type="Staff" />} />
                     <Route path="/staff-dashboard" element={<StaffDashboard />} />
 
-                     {/* 1. THE KIOSK (Tablet inside the restaurant) */}
-                        <Route path="/kiosk" element={<KioskMode />} />
-                        <Route path="/exit-public-auth" element={<ExitPublicAuth />} />
+                    {/* 6. KIOSK & CUSTOMER WEBSITE */}
+                    <Route path="/kiosk" element={<KioskMode />} />
+                    <Route path="/exit-public-auth" element={<ExitPublicAuth />} />
+                    <Route path="/customer-website" element={<CustomerWebsite />} /> 
+                    <Route path="/customer-auth" element={<CustomerAuth />} />
+                    <Route path="/publicview" element={<CustomerWebsite />} />
 
-                        {/* 2. THE CUSTOMER WEBSITE (Accessible from anywhere) */}
-                        {/* I renamed this to customer-website as requested earlier */}
-                        <Route path="/customer-website" element={<CustomerWebsite />} /> 
-                        <Route path="/customer-auth" element={<CustomerAuth />} />
-
-                        {/* If you specifically want the URL to be /publicview, add this line: */}
-                        <Route path="/publicview" element={<CustomerWebsite />} />
-
-                    {/* 8. SHARED TOOLS */}
+                    {/* 7. SHARED MODULES */}
                     <Route path="/inventory" element={<Inventory />} />
-              
-                <Route path="/menu-management" element={<MenuManagement role={res.position ? (res.position.toLowerCase() === 'manager' ? 'Manager' : 'Staff') : 'Admin'} />} />
-                
-                                    // Management/Kiosk route
+                    <Route path="/menu-management" element={<MenuManagement role={res.position ? (res.position.toLowerCase() === 'manager' ? 'Manager' : 'Staff') : 'Admin'} />} />
                     <Route path="/checkout-kiosk" element={<Checkout mode="kiosk" />} />
-
-                    // Website route
                     <Route path="/checkout-public" element={<Checkout mode="website" />} />
-                  </Routes>
+                    <Route path="/purchase-history" element={<PurchaseHistory />} />
+                    <Route path="/reviews" element={<ReviewPage />} />
 
+                    <Route path="/manager-dashboard" element={<ManagerDashboard />} />
+                    <Route path="/staff-dashboard" element={<StaffDashboard />} />
+                    
+                </Routes>
             </div>
         </Router>
     );

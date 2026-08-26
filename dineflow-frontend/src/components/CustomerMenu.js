@@ -1,26 +1,53 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const CustomerMenu = () => {
+    const navigate = useNavigate();
     const res = JSON.parse(localStorage.getItem('restaurant')) || { accent_color: '#6366f1' };
+    const customer = JSON.parse(localStorage.getItem('customer')); 
+
     const [categories, setCategories] = useState([]);
+    const [inventory, setInventory] = useState([]); 
+    const [previousItems, setPreviousItems] = useState([]); 
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState('default'); 
     
-    // States for user selection
     const [selectedOptions, setSelectedOptions] = useState({}); 
     const [quantities, setQuantities] = useState({}); 
     const [customInstructions, setCustomInstructions] = useState({}); 
 
-    const fetchMenu = useCallback(async () => {
+    const fetchData = useCallback(async () => {
         if (!res.id) return;
         try {
-            const response = await axios.get(`http://localhost:8000/api/menu/${res.id}`);
-            setCategories(Array.isArray(response.data) ? response.data : []);
-        } catch (err) { console.error("Menu fetch failed"); }
-    }, [res.id]);
+            const menuRes = await axios.get(`http://localhost:8000/api/menu/${res.id}`);
+            setCategories(Array.isArray(menuRes.data) ? menuRes.data : []);
+            
+            const invRes = await axios.get(`http://localhost:8000/api/inventory/${res.id}`);
+            setInventory(Array.isArray(invRes.data) ? invRes.data : []);
 
-    useEffect(() => { fetchMenu(); }, [fetchMenu]);
+            if (customer && customer.phone) {
+                const prevRes = await axios.get(`http://localhost:8000/api/customer/previous-items/${customer.phone}`);
+                setPreviousItems(Array.isArray(prevRes.data) ? prevRes.data : []);
+            }
+        } catch (err) { console.error("Data fetch failed", err); }
+    }, [res.id, customer?.phone]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // --- LOGIC: EXTRACT POPULAR ITEMS (Rating >= 4) ---
+    const allItems = categories.flatMap(cat => cat.items || []);
+    const popularItems = allItems.filter(item => parseFloat(item.average_rating || 0) >= 4);
+
+    const checkAvailability = (item) => {
+        const itemIngredients = item.ingredients || [];
+        if (itemIngredients.length === 0) return true;
+        for (let ing of itemIngredients) {
+            const stockItem = inventory.find(inv => inv.id === ing.inventory_id);
+            if (!stockItem || parseFloat(stockItem.quantity) < parseFloat(ing.quantity_needed)) return false;
+        }
+        return true;
+    };
 
     const safeParse = (data) => {
         if (!data) return [];
@@ -34,15 +61,12 @@ const CustomerMenu = () => {
         return options.length === 0 ? 0 : Math.min(...options.map(opt => parseFloat(opt.price)));
     };
 
-    // --- NEW: ADD TO CART FUNCTION ---
     const handleAddToCart = (item) => {
         const qty = parseInt(quantities[item.id] || 1);
         const selectedVariantIndex = selectedOptions[item.id];
-        
         let price = item.price;
         let variantName = "Standard";
 
-        // Logic check for items with multiple sizes
         if (item.price_type === 'quantity') {
             if (selectedVariantIndex === undefined || selectedVariantIndex === null) {
                 alert("Please select a size/option first!");
@@ -53,9 +77,8 @@ const CustomerMenu = () => {
             variantName = options[selectedVariantIndex].qty;
         }
 
-        // Create the cart item object
         const cartItem = {
-            cartId: Date.now(), // Unique ID for this specific row in cart
+            cartId: Date.now(),
             id: item.id,
             name: item.name,
             quantity: qty,
@@ -64,13 +87,9 @@ const CustomerMenu = () => {
             note: customInstructions[item.id] || ""
         };
 
-        // Save to localStorage
         const currentCart = JSON.parse(localStorage.getItem('cart')) || [];
         localStorage.setItem('cart', JSON.stringify([...currentCart, cartItem]));
-        
-        alert(`Added ${qty} x ${item.name} (${variantName}) to cart!`);
-        
-        // This triggers the TopBar to update the item count immediately
+        alert(`Added ${qty} x ${item.name} to cart!`);
         window.location.reload(); 
     };
 
@@ -87,6 +106,42 @@ const CustomerMenu = () => {
                 </select>
             </div>
 
+            {/* --- SECTION 1: FROM YOUR PREVIOUS PURCHASE --- */}
+            {customer && previousItems.length > 0 && (
+                <div style={horizontalSectionContainer}>
+                    <h2 style={{ fontSize: '14px', color: '#444', marginBottom: '15px', fontWeight: 'bold' }}>
+                        FROM YOUR PREVIOUS PURCHASE
+                    </h2>
+                    <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
+                        {previousItems.map(item => (
+                            <div key={item.id} style={horizontalItemCard}>
+                                <img src={`http://localhost:8000/storage/${item.image}`} style={horizontalImg} alt={item.name} onError={e => e.target.src="https://via.placeholder.com/100"} />
+                                <p style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '8px', color: '#555' }}>{item.name}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* --- SECTION 2: POPULAR ITEMS (Rating >= 4) --- */}
+            {popularItems.length > 0 && (
+                <div style={horizontalSectionContainer}>
+                    <h2 style={{ fontSize: '22px', color: '#444', marginBottom: '15px', fontWeight: 'bold' }}>
+                        🔥 POPULAR ITEMS
+                    </h2>
+                    <div style={{ display: 'flex', gap: '0px', overflowX: 'auto', paddingBottom: '10px' }}>
+                        {popularItems.map(item => (
+                            <div key={item.id} style={horizontalItemCard}>
+                                <img src={`http://localhost:8000/storage/${item.image}`} style={{...horizontalImg, borderColor: '#f1c40f'}} alt={item.name} onError={e => e.target.src="https://via.placeholder.com/100"} />
+                                <p style={{ fontSize: '12px', fontWeight: 'bold', marginTop: '8px', color: '#555' }}>{item.name}</p>
+                                
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* --- SECTION 3: FULL MENU --- */}
             {categories.map(cat => {
                 const filteredItems = (cat.items || [])
                     .filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -102,18 +157,22 @@ const CustomerMenu = () => {
                                 const isGrid = !!item.image;
                                 const itemTags = safeParse(item.tags);
                                 const isCustomizable = itemTags.includes('Customizable');
+                                const isAvailable = checkAvailability(item);
 
                                 return (
-                                    <div key={item.id} style={isGrid ? cardStyle : listRowStyle}>
+                                    <div key={item.id} style={{ ... (isGrid ? cardStyle : listRowStyle), opacity: isAvailable ? 1 : 0.6 }}>
                                         {item.image && <img src={`http://localhost:8000/storage/${item.image}`} style={imgStyle} alt={item.name} />}
                                         <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column' }}>
                                             <strong style={{ fontSize: '17px' }}>{item.name}</strong>
+                                            
+                                            {/* Tags under Name */}
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '8px 0' }}>
                                                 {itemTags.map((tag, idx) => (
                                                     <span key={idx} style={{ ...tagStyle, backgroundColor: res.accent_color }}>{tag}</span>
                                                 ))}
                                             </div>
-                                            <p style={{ fontSize: '11px', color: '#777', margin: '5px 0 15px 0' }}>{item.description}</p>
+
+                                            <p style={{ fontSize: '11px', color: '#777', margin: '0 0 15px 0' }}>{item.description}</p>
                                             
                                             <div style={{ marginTop: 'auto' }}>
                                                 {item.price_type === 'fixed' ? (
@@ -121,53 +180,24 @@ const CustomerMenu = () => {
                                                 ) : (
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '15px' }}>
                                                         {safeParse(item.price_options).map((opt, idx) => (
-                                                            <div 
-                                                                key={idx} 
-                                                                onClick={() => setSelectedOptions({...selectedOptions, [item.id]: selectedOptions[item.id] === idx ? null : idx})} 
-                                                                style={{ 
-                                                                    ...variationBadge, 
-                                                                    backgroundColor: selectedOptions[item.id] === idx ? res.accent_color : 'white', 
-                                                                    color: selectedOptions[item.id] === idx ? 'white' : '#333', 
-                                                                    borderColor: selectedOptions[item.id] === idx ? res.accent_color : '#ddd' 
-                                                                }}
-                                                            >
-                                                                {opt.qty}: ৳{opt.price}
-                                                            </div>
+                                                            <div key={idx} onClick={() => isAvailable && setSelectedOptions({...selectedOptions, [item.id]: selectedOptions[item.id] === idx ? null : idx})} style={{ ...variationBadge, backgroundColor: selectedOptions[item.id] === idx ? res.accent_color : 'white', color: selectedOptions[item.id] === idx ? 'white' : '#333', borderColor: selectedOptions[item.id] === idx ? res.accent_color : '#ddd', cursor: isAvailable ? 'pointer' : 'not-allowed' }}>{opt.qty}: ৳{opt.price}</div>
                                                         ))}
                                                     </div>
                                                 )}
 
-                                                {isCustomizable && (
+                                                {isCustomizable && isAvailable && (
                                                     <div style={{ marginBottom: '15px' }}>
                                                         <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', display: 'block' }}>CUSTOMIZABLE</label>
-                                                        <textarea 
-                                                            placeholder="Instructions..." 
-                                                            style={customTextArea} 
-                                                            value={customInstructions[item.id] || ''} 
-                                                            onChange={(e) => setCustomInstructions({...customInstructions, [item.id]: e.target.value})} 
-                                                        />
+                                                        <textarea placeholder="Instructions..." style={customTextArea} value={customInstructions[item.id] || ''} onChange={(e) => setCustomInstructions({...customInstructions, [item.id]: e.target.value})} />
                                                     </div>
                                                 )}
 
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#999' }}>QTY:</span>
-                                                    <input 
-                                                        type="number" 
-                                                        min="1" 
-                                                        style={qtyInput} 
-                                                        value={quantities[item.id] || ''} 
-                                                        placeholder="1"
-                                                        onChange={(e) => setQuantities({...quantities, [item.id]: e.target.value})} 
-                                                    />
+                                                    <input type="number" min="1" style={qtyInput} value={quantities[item.id] || ''} placeholder="1" disabled={!isAvailable} onChange={(e) => setQuantities({...quantities, [item.id]: e.target.value})} />
                                                 </div>
 
-                                                {/* --- THE MAPPED BUTTON --- */}
-                                                <button 
-                                                    onClick={() => handleAddToCart(item)} 
-                                                    style={{ ...addToCartBtn, backgroundColor: res.accent_color }}
-                                                >
-                                                    ADD TO CART
-                                                </button>
+                                                <button onClick={() => isAvailable ? handleAddToCart(item) : alert("Not available in stock")} style={{ ...addToCartBtn, backgroundColor: isAvailable ? res.accent_color : '#888', cursor: isAvailable ? 'pointer' : 'not-allowed' }}>{isAvailable ? "ADD TO CART" : "NOT AVAILABLE"}</button>
                                             </div>
                                         </div>
                                     </div>
@@ -182,7 +212,11 @@ const CustomerMenu = () => {
 };
 
 // --- STYLES ---
-const filterBarContainer = { display: 'flex', gap: '15px', marginBottom: '40px', background: 'white', padding: '15px', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.03)' };
+const horizontalSectionContainer = { background: '#fff', padding: '25px', borderRadius: '15px', marginBottom: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' };
+const horizontalItemCard = { textAlign: 'center', minWidth: '130px', padding: '10px', borderRadius: '12px' };
+const horizontalImg = { width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: `3px solid #eee` };
+
+const filterBarContainer = { display: 'flex', gap: '15px', marginBottom: '20px', background: 'white', padding: '15px', borderRadius: '12px', boxShadow: '0 4px 10px rgba(0,0,0,0.03)' };
 const searchInput = { flex: 3, padding: '12px', borderRadius: '8px', border: '1px solid #eee', fontFamily: 'Verdana', fontSize: '14px' };
 const sortSelect = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #eee', fontFamily: 'Verdana', fontSize: '14px' };
 const cardStyle = { width: '255px', background: '#fff', borderRadius: '15px', boxShadow: '0 6px 15px rgba(0,0,0,0.05)', overflow: 'hidden', display: 'flex', flexDirection: 'column' };
@@ -192,6 +226,6 @@ const tagStyle = { color: 'white', fontSize: '8px', fontWeight: 'bold', padding:
 const variationBadge = { fontSize: '10px', padding: '6px 10px', borderRadius: '50px', border: '1px solid #ddd', cursor: 'pointer', transition: '0.2s', fontWeight: 'bold' };
 const qtyInput = { width: '50px', padding: '6px', borderRadius: '6px', border: '1px solid #eee', textAlign: 'center', fontSize: '13px', fontFamily: 'Verdana' };
 const customTextArea = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #eee', fontSize: '12px', fontFamily: 'Verdana', boxSizing: 'border-box', resize: 'none', height: '60px' };
-const addToCartBtn = { width: '100%', color: 'white', border: 'none', padding: '10px', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer', marginTop: '12px', fontSize: '11px' };
+const addToCartBtn = { width: '100%', color: 'white', border: 'none', padding: '10px', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer', marginTop: '12px', fontSize: '11px', transition: '0.3s' };
 
 export default CustomerMenu;

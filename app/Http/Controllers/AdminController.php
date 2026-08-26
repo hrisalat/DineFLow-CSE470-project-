@@ -139,4 +139,34 @@ public function deleteEmployee($id)
     $restaurant->save();
     return response()->json(['status' => 'success', 'website_active' => $restaurant->is_website_active]);
 }
+
+public function saveShift(Request $request) {
+    $shift = \App\Models\Shift::create($request->all());
+    return response()->json(['status' => 'success']);
+}
+
+public function getShifts($res_id) {
+    return response()->json(\App\Models\Shift::where('restaurant_id', $res_id)->get());
+}
+
+public function markAttendance(Request $request) {
+    $emp = \App\Models\Employee::where('email', $request->email)->first();
+    if (!$emp) return response()->json(['status' => 'error', 'message' => 'Email not found'], 404);
+
+    \App\Models\Attendance::create([
+        'employee_id' => $emp->id,
+        'date' => now()->toDateString(),
+        'check_in_time' => now()->toTimeString()
+    ]);
+    return response()->json(['status' => 'success', 'name' => $emp->name]);
+}
+
+public function getAttendance($res_id) {
+    // Get attendance for all employees of this restaurant
+    return response()->json(\App\Models\Attendance::whereHas('employee', function($q) use ($res_id) {
+        $q->where('restaurant_id', $res_id);
+    })->with('employee')->get());
+}
+
+
 }

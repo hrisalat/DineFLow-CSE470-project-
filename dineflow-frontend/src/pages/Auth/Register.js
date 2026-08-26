@@ -34,7 +34,8 @@ const Register = () => {
             alert("Success! Restaurant Registered.");
             navigate('/');
         } catch (err) {
-            alert("Registration Failed: Ensure emails are unique.");
+            const errorMsg = err.response?.data?.message || "Registration Failed: Ensure emails are unique.";
+            alert(errorMsg);
         }
     };
 

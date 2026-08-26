@@ -10,8 +10,6 @@ const CustomerAuth = () => {
     const [isSignup, setIsSignup] = useState(false);
     const [form, setForm] = useState({ name: '', phone: '', password: '' });
 
-    // src/pages/Auth/CustomerAuth.js
-
     const handleAuth = async (e) => {
         e.preventDefault();
         try {
@@ -20,14 +18,19 @@ const CustomerAuth = () => {
             const result = await axios.post(url, payload);
             
             if (result.data.status === 'success') {
-                // FIX: Use setItem without clearing existing 'restaurant' data
-                localStorage.setItem('customer', JSON.stringify(result.data.user));
+                // FIXED: Now saving the ID along with name and phone
+                localStorage.setItem('customer', JSON.stringify({
+                    id: result.data.user.id,    // <--- THIS IS THE CRITICAL LINE
+                    name: result.data.user.name,
+                    phone: result.data.user.phone,
+                    role: 'customer'
+                }));
                 
-                alert(isSignup ? "Account Created!" : "Logged In!");
-                navigate('/customer-website'); // Navigate to the website
+                alert(isSignup ? "Account Created!" : "Login Successful!");
+                navigate('/customer-website');
             }
         } catch (err) { 
-            alert("Auth Failed: Check your phone number or password."); 
+            alert("Auth failed. Please check your phone number and password."); 
         }
     };
 
@@ -36,7 +39,7 @@ const CustomerAuth = () => {
             <TopBar role="Public" />
             <div style={styles.authContainer}>
                 <div style={styles.card}>
-                    <h2 style={{ textAlign: 'center', color: res.accent_color }}>
+                    <h2 style={{ textAlign: 'center', color: res.accent_color, fontFamily: 'Verdana' }}>
                         Customer {isSignup ? 'Sign Up' : 'Login'}
                     </h2>
                     <form onSubmit={handleAuth}>
@@ -61,13 +64,13 @@ const CustomerAuth = () => {
                             onChange={e => setForm({ ...form, password: e.target.value })} 
                             required 
                         />
-                        <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color }}>
-                            {isSignup ? 'Create Account' : 'Sign In'}
+                        <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color, borderRadius: '50px' }}>
+                            {isSignup ? 'CREATE ACCOUNT' : 'SIGN IN'}
                         </button>
                     </form>
                     <p 
                         onClick={() => setIsSignup(!isSignup)} 
-                        style={{ cursor: 'pointer', textAlign: 'center', marginTop: '15px', fontSize: '13px', color: '#666' }}
+                        style={{ cursor: 'pointer', textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#666' }}
                     >
                         {isSignup ? "Already have an account? Login" : "New here? Create Account"}
                     </p>

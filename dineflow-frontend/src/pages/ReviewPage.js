@@ -131,8 +131,8 @@ const ReviewPage = () => {
                                 {/* AVERAGE STARS (Clickable to view reviews) */}
                                 <div onClick={() => openViewReviews(item)} style={{ cursor: 'pointer', marginTop: '8px', display: 'flex', alignItems: 'center' }}>
                                     <span style={{ color: '#f1c40f', fontSize: '20px' }}>
-                                        {''.repeat(Math.floor(item.average_rating || 0))}
-                                        {''.repeat(5 - Math.floor(item.average_rating || 0))}
+                                        {'★'.repeat(Math.floor(item.average_rating || 0))}
+                                        {'☆'.repeat(5 - Math.floor(item.average_rating || 0))}
                                     </span>
                                     <span style={{ marginLeft: '10px', fontSize: '12px', color: '#888' }}>
                                         ({item.average_rating || 0} average)
@@ -182,7 +182,7 @@ const ReviewPage = () => {
                     <div style={{ ...styles.wideCard, maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eee', paddingBottom: '10px', marginBottom: '20px' }}>
                             <h2 style={{ margin: 0 }}>Reviews for {selectedItem?.name}</h2>
-                            <button onClick={() => setShowViewModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}></button>
+                            <button onClick={() => setShowViewModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
                         </div>
 
                         {itemReviews.length === 0 ? (
@@ -192,7 +192,7 @@ const ReviewPage = () => {
                                 <div key={rev.id} style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #f4f4f4' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <strong>{rev.user?.name || "Customer"}</strong>
-                                        <span style={{ color: '#f1c40f' }}>{''.repeat(rev.rating)}</span>
+                                        <span style={{ color: '#f1c40f' }}>{'★'.repeat(rev.rating)}</span>
                                     </div>
                                     <p style={{ fontSize: '14px', color: '#444', marginTop: '8px', fontStyle: rev.comment ? 'normal' : 'italic' }}>
                                         {rev.comment || ""}

@@ -13,12 +13,13 @@ class MenuController extends Controller
 {
     // 1. Get all categories and items for a restaurant
     public function index($res_id)
-    {
-        $categories = Category::where('restaurant_id', $res_id)
-            ->with('items.ingredients') // Load items and their ingredient links
-            ->get();
-        return response()->json($categories);
-    }
+{
+    $categories = Category::where('restaurant_id', $res_id)
+        ->with(['items.ingredients']) 
+        ->get();
+
+    return response()->json($categories);
+}
 
     // 2. Store Category (Image removed as requested)
       public function storeCategory(Request $request)
@@ -114,12 +115,13 @@ class MenuController extends Controller
             MenuItemIngredient::where('menu_item_id', $item->id)->delete();
 
             foreach ($ingredients as $ing) {
-                if (!empty($ing['inventory_id'])) {
-                    MenuItemIngredient::create([
-                        'menu_item_id' => $item->id,
-                        'inventory_id' => $ing['inventory_id'],
-                        'quantity_needed' => $ing['quantity']
-                    ]);
+            if (!empty($ing['inventory_id'])) {
+                MenuItemIngredient::create([
+                    'menu_item_id' => $item->id,
+                    'inventory_id' => $ing['inventory_id'],
+                    // Ensure you are mapping 'quantity' from React to 'quantity_needed' for the DB
+                    'quantity_needed' => $ing['quantity'] 
+        ]);
                 }
             }
         }

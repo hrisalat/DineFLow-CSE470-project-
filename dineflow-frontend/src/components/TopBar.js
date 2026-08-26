@@ -12,46 +12,65 @@ const TopBar = ({ role }) => {
     let customer = null;
     try {
         const savedCustomer = localStorage.getItem('customer');
-        if (savedCustomer && savedCustomer !== "undefined") {
+        if (savedCustomer && savedCustomer !== "undefined" && savedCustomer !== null) {
             customer = JSON.parse(savedCustomer);
         }
     } catch (e) {
         console.error("Error parsing customer data");
     }
 
-    // --- FIX: CALCULATE TOTAL QUANTITY (e.g. 3 Mojo + 1 Pizza = 4 items) ---
+    // CALCULATE TOTAL QUANTITY (e.g. 3 Mojo + 1 Pizza = 4 items)
     const cart = JSON.parse(localStorage.getItem('cart')) || [];
     const totalQuantity = cart.reduce((acc, obj) => acc + parseInt(obj.quantity || 0), 0);
+
+    // --- FIX: NORMALIZE ROLE FOR BUTTON VISIBILITY ---
+    const staffPositions = ['chef', 'waiter', 'cleaner', 'staff'];
+    let normalizedRole = "Admin"; // Default
+    
+    if (role) {
+        const lowerRole = role.toLowerCase();
+        if (staffPositions.includes(lowerRole)) normalizedRole = "Staff";
+        else if (lowerRole === 'manager') normalizedRole = "Manager";
+        else if (lowerRole === 'public') normalizedRole = "Public";
+        else if (lowerRole === 'kiosk') normalizedRole = "Kiosk";
+    }
 
     // 2. Detection for Auth Pages
     const isAuthPage = location.pathname.includes('auth') || location.pathname === '/' || location.pathname === '/register';
     const isPublic = role === "Public";
     const isKiosk = role === "Kiosk";
 
-    // 3. Define Menu Layouts based on Role
+    // 3. Define Menu Layouts based on Normalized Role
     const menuConfigs = {
-        Admin: ['Employees', 'Inventory', 'Menu', 'Coupons', 'Reservations', 'Waste Management', 'Finances', 'Profile'],
+        Admin: ['Employees', 'Inventory', 'Menu', 'Coupons', 'Reservations', 'Waste Management', 'Finances', 'Settings'],
         Manager: ['Dashboard', 'Employees', 'Inventory', 'Menu', 'Coupons', 'Reservations', 'Waste Management', 'Finances'],
-        Staff: ['Dashboard', 'Take Order', 'Menu', 'Inventory','Order Progress', 'Reservations', 'Waste Management', 'Finances'],
+        Staff: ['Dashboard', 'Menu', 'Inventory','Order Progress', 'Reservations', 'Waste Management', 'Finances'],
         Public: customer 
             ? ['Menu', 'Review', 'Purchase History', 'Profile', 'Cart'] 
             : ['Menu', 'Cart'],
         Kiosk: [] 
     };
 
-    const menuItems = isAuthPage ? [] : (menuConfigs[role] || []);
+    const menuItems = isAuthPage ? [] : (menuConfigs[normalizedRole] || []);
 
-    // 4. Navigation Logic
+    // 4. NAVIGATION LOGIC
     const handleNavigation = (item) => {
-        if (isPublic && item === 'Menu') return navigate('/customer-website');
-        if (item === 'Cart') return navigate('/checkout-public');
+        if (isPublic) {
+            if (item === 'Menu') return navigate('/customer-website');
+            if (item === 'Cart') return navigate('/checkout-public');
+            if (item === 'Purchase History') return navigate('/purchase-history');
+            if (item === 'Review') return navigate('/reviews');
+            return; 
+        }
 
         const routeMap = {
-            'Employees': role === 'Admin' ? '/admin-panel' : '/manager-employees',
+            'Employees': normalizedRole === 'Admin' ? '/admin-panel' : '/manager-employees',
             'Inventory': '/inventory',
             'Menu': '/menu-management',
-            'Profile': '',
-            'Dashboard': role === 'Manager' ? '/manager-dashboard' : '/staff-dashboard',
+            'Settings': '/admin-profile',
+            // FIXED: Dashboard now points to the Schedule page for Manager and Staff
+            'Dashboard': (normalizedRole === 'Manager' ) ? '/manager-dashboard' :
+            (normalizedRole === 'Staff') ? '/staff-dashboard' : '/dashboard',
         };
 
         if (routeMap[item]) navigate(routeMap[item]);
@@ -69,7 +88,7 @@ const TopBar = ({ role }) => {
             }
         } else {
             const path = location.pathname;
-            const isSubProfile = path.includes('panel') || path.includes('employees') || path.includes('dashboard') || path.includes('auth') || path.includes('profile') || path.includes('inventory') || path.includes('menu');
+            const isSubProfile = path.includes('panel') || path.includes('employees') || path.includes('dashboard') || path.includes('auth') || path.includes('profile') || path.includes('inventory') || path.includes('menu') || path.includes('schedule');
             if (isSubProfile && path !== '/dashboard') {
                 navigate('/employee-view');
             } else {
@@ -95,8 +114,8 @@ const TopBar = ({ role }) => {
             background: isHovered ? 'rgba(255,255,255,0.25)' : 'none',
             border: 'none', color: 'white', cursor: 'pointer',
             fontWeight: 'bold', fontSize: '9px', padding: '10px 10px',
-            borderRadius: '4px', textTransform: 'uppercase', transition: '0.2s',
-            filter: isHovered ? 'brightness(1.2)' : 'none'
+            borderRadius: '4px', textTransform: 'uppercase', fontFamily: 'Verdana',
+            transition: '0.2s', filter: isHovered ? 'brightness(1.2)' : 'none'
         }),
         capsuleBtn: {
             backgroundColor: 'white',
@@ -108,6 +127,7 @@ const TopBar = ({ role }) => {
             fontWeight: 'bold',
             fontSize: '11px',
             textTransform: 'uppercase',
+            fontFamily: 'Verdana',
             boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
         }
     };
@@ -119,7 +139,7 @@ const TopBar = ({ role }) => {
                     src={`http://localhost:8000/storage/${res.logo}`} 
                     style={styles.logo} 
                     alt="Logo" 
-                    onDoubleClick={() => isKiosk && navigate('/exit-public-auth')}
+                    onDoubleClick={() => (isKiosk || isPublic) && navigate('/exit-public-auth')}
                     onError={e => e.target.src="https://via.placeholder.com/40"} 
                 />
                 <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{res.restaurant_name}</span>
@@ -134,14 +154,13 @@ const TopBar = ({ role }) => {
                         onMouseLeave={() => setHoveredBtn(null)}
                         onClick={() => handleNavigation(item)}
                     >
-                        {/* FIX: Use item here inside the loop */}
                         {item === 'Cart' ? `CART (${totalQuantity})` : item}
                     </button>
                 ))}
             </div>
 
             <div style={styles.rightSection}>
-                {isKiosk && !isAuthPage && (
+                {(isKiosk || (isPublic && !customer)) && !isAuthPage && (
                     <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
                         {totalQuantity} ITEMS SELECTED
                     </span>

@@ -9,19 +9,20 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
-    {
-        Schema::table('users', function (Blueprint $table) {
-            //
-        });
-    }
-
+    
+    public function up()
+{
+    Schema::table('inventories', function (Blueprint $table) {
+        // Change from integer to decimal (up to 10 digits, 3 after the decimal point)
+        $table->decimal('quantity', 10, 3)->change();
+    });
+}
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
+        Schema::table('decimal', function (Blueprint $table) {
             //
         });
     }

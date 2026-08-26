@@ -10,21 +10,20 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up() {
-    Schema::create('order_items', function (Blueprint $table) {
+    Schema::create('attendances', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('order_id')->constrained()->onDelete('cascade');
-        $table->string('item_name');
-        $table->integer('quantity');
-        $table->decimal('price', 10, 2);
-        $table->text('custom_notes')->nullable();
+        $table->foreignId('employee_id')->constrained()->onDelete('cascade');
+        $table->date('date');
+        $table->time('check_in_time');
         $table->timestamps();
     });
 }
+
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('order_items');
+        Schema::dropIfExists('attendances');
     }
 };

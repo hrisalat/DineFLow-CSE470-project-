@@ -10,23 +10,21 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up() {
-    Schema::create('orders', function (Blueprint $table) {
+    Schema::create('shift_templates', function (Blueprint $table) {
         $table->id();
         $table->foreignId('restaurant_id')->constrained()->onDelete('cascade');
-        $table->string('customer_name')->nullable();
-        $table->string('customer_phone')->nullable();
-        $table->string('service_type'); // dine-in, takeaway
-        $table->decimal('total_price', 10, 2);
-        $table->string('payment_method'); // cash, bkash
-        $table->string('status')->default('pending');
+        $table->string('name'); // e.g. Day Shift
+        $table->time('start_time');
+        $table->time('end_time');
         $table->timestamps();
     });
 }
+
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('orders');
+        Schema::dropIfExists('shift_templates');
     }
 };

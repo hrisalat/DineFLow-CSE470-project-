@@ -3,8 +3,13 @@ import axios from 'axios';
 import TopBar from '../components/TopBar';
 import { styles } from '../styles/theme';
 
-const MenuManagement = ({ role }) => {
+const MenuManagement = () => {
+    // 1. Get Data from storage
     const res = JSON.parse(localStorage.getItem('restaurant')) || {};
+    
+    // 2. State to track the dynamic role for the TopBar
+    const [currentRole, setCurrentRole] = useState("Admin");
+
     const [categories, setCategories] = useState([]);
     const [inventory, setInventory] = useState([]);
     const [showCatModal, setShowCatModal] = useState(false);
@@ -14,7 +19,7 @@ const MenuManagement = ({ role }) => {
     const [catForm, setCatForm] = useState({ name: '', description: '' });
     const emptyItem = { name: '', description: '', price: '', price_type: '', image: null };
     const [itemForm, setItemForm] = useState(emptyItem);
-    const [tagInputs, setTagInputs] = useState(['', '', '']); // State for 3 tags
+    const [tagInputs, setTagInputs] = useState(['', '', '']);
     const [priceOptions, setPriceOptions] = useState([{ qty: '', price: '' }]);
     const [ingredients, setIngredients] = useState([{ inventory_id: '', quantity: '' }]);
 
@@ -25,11 +30,28 @@ const MenuManagement = ({ role }) => {
     const [editingItemId, setEditingItemId] = useState(null);
     const [selectedCatId, setSelectedCatId] = useState(null);
 
+    // --- ROLE DETECTION LOGIC ---
+    useEffect(() => {
+        if (res) {
+            if (res.position) {
+                const pos = res.position.toLowerCase();
+                if (pos === 'manager') {
+                    setCurrentRole("Manager");
+                } else {
+                    setCurrentRole("Staff"); // For Chef/Waiter/Cleaner
+                }
+            } else {
+                setCurrentRole("Admin"); // If no position, it's the Owner
+            }
+        }
+    }, [res.position]);
+
     // --- HELPERS ---
     const safeParse = (data) => {
         if (!data) return [];
         if (typeof data === 'object') return data;
-        try { return JSON.parse(data); } catch (e) { return []; }
+        try { return JSON.parse(data); } 
+        catch (e) { return []; }
     };
 
     const fetchMenu = useCallback(async () => {
@@ -48,14 +70,17 @@ const MenuManagement = ({ role }) => {
         } catch (err) { console.error("Inventory fetch failed"); }
     }, [res.id]);
 
-    useEffect(() => { fetchMenu(); fetchInventory(); }, [fetchMenu, fetchInventory]);
+    useEffect(() => { 
+        fetchMenu(); 
+        fetchInventory(); 
+    }, [fetchMenu, fetchInventory]);
 
     // --- HANDLERS ---
     const openAddItem = (catId) => {
         setIsEditingItem(false);
         setSelectedCatId(catId);
         setItemForm(emptyItem);
-        setTagInputs(['', '', '']); // Reset tags to None
+        setTagInputs(['', '', '']);
         setPriceOptions([{ qty: '', price: '' }]);
         setIngredients([{ inventory_id: '', quantity: '' }]);
         setShowItemModal(true);
@@ -73,12 +98,12 @@ const MenuManagement = ({ role }) => {
             image: null 
         });
         
-        // Handle tags: ensuring it's an array of 3 strings
         const savedTags = safeParse(item.tags);
         const paddedTags = [...savedTags, '', '', ''].slice(0, 3);
         setTagInputs(paddedTags);
 
-        setPriceOptions(safeParse(item.price_options).length > 0 ? safeParse(item.price_options) : [{ qty: '', price: '' }]);
+        const parsedPrices = safeParse(item.price_options);
+        setPriceOptions(parsedPrices.length > 0 ? parsedPrices : [{ qty: '', price: '' }]);
         setIngredients(item.ingredients?.length > 0 
             ? item.ingredients.map(ing => ({ inventory_id: ing.inventory_id, quantity: ing.quantity_needed }))
             : [{ inventory_id: '', quantity: '' }]
@@ -88,30 +113,60 @@ const MenuManagement = ({ role }) => {
 
     const handleItemSubmit = async (e) => {
         e.preventDefault();
-        if (!isEditingItem && !itemForm.image) return alert("Image is mandatory!");
-        
+
+        // 1. Validations
+        if (!isEditingItem && !itemForm.image) return alert("Image is mandatory for new items!");
+        if (!itemForm.price_type) return alert("Please select a Price Type!");
+
         const data = new FormData();
         data.append('category_id', selectedCatId);
         data.append('name', itemForm.name);
-        data.append('description', itemForm.description || '');
+        data.append('description', itemForm.description || ''); // Ensures no null inheritance
         data.append('price_type', itemForm.price_type);
-        
-        // Filter out empty tags and append as JSON
+
+        // 2. Tags Logic: Filter out "None" or empty selections
         const filteredTags = tagInputs.filter(t => t !== '');
         data.append('tags', JSON.stringify(filteredTags));
 
-        if (itemForm.price_type === 'fixed') data.append('price', itemForm.price);
-        else data.append('price_options', JSON.stringify(priceOptions));
+        // 3. Pricing Logic
+        if (itemForm.price_type === 'fixed') {
+            data.append('price', itemForm.price);
+        } else {
+            // Only send price options that have both size and price filled
+            const validPriceOptions = priceOptions.filter(opt => opt.qty && opt.price);
+            data.append('price_options', JSON.stringify(validPriceOptions));
+        }
 
-        if (itemForm.image) data.append('image', itemForm.image);
-        data.append('ingredients', JSON.stringify(ingredients));
+        // 4. Ingredients Logic: Filter out rows where no inventory item was selected
+        const validIngredients = ingredients.filter(ing => ing.inventory_id !== '' && ing.quantity !== '');
+        data.append('ingredients', JSON.stringify(validIngredients));
 
-        const url = isEditingItem ? `http://localhost:8000/api/menu/item/update/${editingItemId}` : `http://localhost:8000/api/menu/item`;
+        // 5. Image Handling
+        if (itemForm.image) {
+            data.append('image', itemForm.image);
+        }
+
+        // 6. API Call
+        const url = isEditingItem 
+            ? `http://localhost:8000/api/menu/item/update/${editingItemId}` 
+            : `http://localhost:8000/api/menu/item`;
+
         try {
-            await axios.post(url, data);
-            setShowItemModal(false);
-            fetchMenu();
-        } catch (err) { alert("Error saving item"); }
+            const response = await axios.post(url, data, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (response.data.status === 'success') {
+                alert(isEditingItem ? "Item Updated Successfully!" : "Item Created Successfully!");
+                setShowItemModal(false);
+                fetchMenu(); // Refresh the list to show new data
+            } else {
+                alert("Backend Error: " + response.data.message);
+            }
+        } catch (err) {
+            console.error("Submission error:", err.response?.data);
+            alert("Critical Error: " + (err.response?.data?.message || "Could not reach server"));
+        }
     };
 
     const handleCatSubmit = async (e) => {
@@ -126,69 +181,68 @@ const MenuManagement = ({ role }) => {
 
     return (
         <div style={styles.app}>
-            <TopBar role={role} />
+            {/* 3. PASS THE DYNAMIC ROLE TO THE TOPBAR */}
+            <TopBar role={currentRole} />
+            
             <div style={{ ...styles.container, padding: '100px 40px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '1100px' }}>
                     <h1 style={{ fontFamily: 'Verdana' }}>Menu Management</h1>
-                    <button onClick={() => { setIsEditingCat(false); setCatForm({name:'', description:''}); setShowCatModal(true); }} style={{ ...styles.button, width: 'auto', padding: '10px 25px', backgroundColor: res.accent_color, borderRadius: '50px' }}>+ ADD CATEGORY</button>
+                    <button onClick={openAddCategory} style={{ ...styles.button, width: 'auto', padding: '10px 25px', backgroundColor: res.accent_color, borderRadius: '50px' }}>+ ADD CATEGORY</button>
                 </div>
 
-                {categories.map(cat => (
-                    <div key={cat.id} style={{ ...styles.wideCard, marginTop: '30px', borderLeft: `8px solid ${res.accent_color}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h2 style={{ margin: 0 }}>{cat.name}</h2>
-                                <p style={{ fontSize: '13px', color: '#666' }}>{cat.description}</p>
+                {categories.length === 0 ? (
+                    <div style={{marginTop: '50px', textAlign: 'center', color: '#888'}}>
+                        <p>No categories found. Click "+ Add Category" to get started.</p>
+                    </div>
+                ) : (
+                    categories.map(cat => (
+                        <div key={cat.id} style={{ ...styles.wideCard, marginTop: '30px', borderLeft: `8px solid ${res.accent_color}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <h2 style={{ margin: 0 }}>{cat.name}</h2>
+                                    <p style={{ fontSize: '13px', color: '#666' }}>{cat.description}</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button onClick={() => { setIsEditingCat(true); setEditingCatId(cat.id); setCatForm({name: cat.name, description: cat.description}); setShowCatModal(true); }} style={editBtnStyle}>✏️ EDIT</button>
+                                    <button onClick={() => openAddItem(cat.id)} style={{ ...styles.button, width: 'auto', padding: '5px 15px', fontSize: '11px', backgroundColor: res.accent_color, borderRadius: '50px' }}>+ ADD ITEM</button>
+                                    <button onClick={() => window.confirm("Delete category?") && axios.delete(`http://localhost:8000/api/menu/category/${cat.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button onClick={() => { setIsEditingCat(true); setEditingCatId(cat.id); setCatForm({name: cat.name, description: cat.description}); setShowCatModal(true); }} style={editBtnStyle}>✏️ EDIT</button>
-                                <button onClick={() => openAddItem(cat.id)} style={{ ...styles.button, width: 'auto', padding: '5px 15px', fontSize: '11px', backgroundColor: res.accent_color, borderRadius: '50px' }}>+ ADD ITEM</button>
-                                <button onClick={() => window.confirm("Delete category?") && axios.delete(`http://localhost:8000/api/menu/category/${cat.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
-                            </div>
-                        </div>
 
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '20px' }}>
-                            {cat.items?.map(item => (
-                                <div key={item.id} style={item.image ? cardStyle : listRowStyle}>
-                                    {item.image && <img src={`http://localhost:8000/storage/${item.image}`} style={imgStyle} alt="" />}
-                                    <div style={{ flex: 1, padding: '15px' }}>
-                                        
-                                        {/* LAYOUT: NAME */}
-                                        <strong style={{ fontSize: '16px', display: 'block' }}>{item.name}</strong>
-
-                                        {/* LAYOUT: TAGS UNDER NAME */}
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '8px 0' }}>
-                                            {safeParse(item.tags).map((t, idx) => (
-                                                <span key={idx} style={{ ...tagStyle, backgroundColor: res.accent_color }}>{t}</span>
-                                            ))}
-                                        </div>
-
-                                        {/* LAYOUT: DESCRIPTION UNDER TAGS */}
-                                        <p style={{ fontSize: '11px', color: '#777', marginBottom: '10px' }}>{item.description || "No description."}</p>
-
-                                        {/* LAYOUT: PRICE */}
-                                        <div style={{ marginTop: 'auto' }}>
-                                            {item.price_type === 'fixed' ? (
-                                                <span style={{ fontWeight: 'bold', color: res.accent_color }}>৳{item.price}</span>
-                                            ) : (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                                                    {safeParse(item.price_options).map((opt, idx) => (
-                                                        <span key={idx} style={variationBadge}>{opt.qty}: ৳{opt.price}</span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                            <button onClick={() => openEditItem(item, cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: res.accent_color, fontSize: '12px', fontWeight: 'bold' }}>✏️ Edit</button>
-                                            <button onClick={() => window.confirm("Delete item?") && axios.delete(`http://localhost:8000/api/menu/item/${item.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginTop: '20px' }}>
+                                {cat.items?.map(item => (
+                                    <div key={item.id} style={item.image ? cardStyle : listRowStyle}>
+                                        {item.image && <img src={`http://localhost:8000/storage/${item.image}`} style={imgStyle} alt="" />}
+                                        <div style={{ flex: 1, padding: '15px' }}>
+                                            <strong style={{ fontSize: '16px', display: 'block' }}>{item.name}</strong>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '8px 0' }}>
+                                                {safeParse(item.tags).map((t, idx) => (
+                                                    <span key={idx} style={{ ...tagStyle, backgroundColor: res.accent_color }}>{t}</span>
+                                                ))}
+                                            </div>
+                                            <p style={{ fontSize: '11px', color: '#777', marginBottom: '10px' }}>{item.description || "No description."}</p>
+                                            <div style={{ marginTop: 'auto' }}>
+                                                {item.price_type === 'fixed' ? (
+                                                    <span style={{ fontWeight: 'bold', color: res.accent_color }}>৳{item.price}</span>
+                                                ) : (
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                        {safeParse(item.price_options).map((opt, idx) => (
+                                                            <span key={idx} style={variationBadge}>{opt.qty}: ৳{opt.price}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                                <button onClick={() => openEditItem(item, cat.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: res.accent_color, fontSize: '12px', fontWeight: 'bold' }}>✏️ Edit</button>
+                                                <button onClick={() => window.confirm("Delete item?") && axios.delete(`http://localhost:8000/api/menu/item/${item.id}`).then(fetchMenu)} style={delBtnWhite}>❌</button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))
+                )}
             </div>
 
             {/* ITEM MODAL */}
@@ -196,88 +250,40 @@ const MenuManagement = ({ role }) => {
                 <div style={modalOverlay}>
                     <form style={{ ...styles.card, maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }} onSubmit={handleItemSubmit}>
                         <h3>{isEditingItem ? 'Edit Item' : 'Add Item'}</h3>
-                        
                         <label style={lbl}>Item Name</label>
                         <input style={styles.input} value={itemForm.name} onChange={e => setItemForm({...itemForm, name: e.target.value})} required />
-                        
                         <label style={lbl}>Description</label>
                         <textarea style={styles.input} value={itemForm.description} onChange={e => setItemForm({...itemForm, description: e.target.value})} />
-
-                        {/* TAG DROPDOWNS (Up to 3) */}
                         <label style={lbl}>Tags (Up to 3)</label>
                         <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
                             {[0, 1, 2].map(i => (
-                                <select 
-                                    key={i} 
-                                    style={{ ...styles.input, flex: 1, margin: 0 }} 
-                                    value={tagInputs[i]} 
-                                    onChange={e => {
-                                        let newTags = [...tagInputs];
-                                        newTags[i] = e.target.value;
-                                        setTagInputs(newTags);
-                                    }}
-                                >
-                                    <option value="">None</option>
-                                    <option value="new">New</option>
-                                    <option value="best-selling">Best Selling</option>
-                                    <option value="spicy">Spicy</option>
-                                    <option value="extra-spicy">Extra Spicy</option>
-                                    <option value="vegetarian">Vegetarian</option>
-                                    <option value="Customizable">Customizable</option>
+                                <select key={i} style={{ ...styles.input, flex: 1, margin: 0 }} value={tagInputs[i]} onChange={e => { let newTags = [...tagInputs]; newTags[i] = e.target.value; setTagInputs(newTags); }}>
+                                    <option value="">None</option><option value="new">New</option><option value="best-selling">Best Selling</option><option value="spicy">Spicy</option><option value="extra-spicy">Extra Spicy</option><option value="vegetarian">Vegetarian</option><option value="Customizable">Customizable</option>
                                 </select>
                             ))}
                         </div>
-
                         <div style={{display:'flex', gap: '10px'}}>
-                            <div style={{flex:1}}>
-                                <label style={lbl}>Price Type</label>
-                                <select style={styles.input} value={itemForm.price_type} onChange={e => setItemForm({...itemForm, price_type: e.target.value})} required>
-                                    <option value="">Select Type</option>
-                                    <option value="fixed">Fixed Price</option>
-                                    <option value="quantity">Quantity Price</option>
-                                </select>
-                            </div>
+                            <div style={{flex:1}}><label style={lbl}>Price Type</label><select style={styles.input} value={itemForm.price_type} onChange={e => setItemForm({...itemForm, price_type: e.target.value})} required><option value="">Select Type</option><option value="fixed">Fixed Price</option><option value="quantity">Quantity Price</option></select></div>
                         </div>
-
-                        {itemForm.price_type === 'fixed' && (
-                            <input type="number" placeholder="Price (৳)" style={styles.input} value={itemForm.price} onChange={e => setItemForm({...itemForm, price: e.target.value})} required />
-                        )}
-
+                        {itemForm.price_type === 'fixed' && (<input type="number" placeholder="Price (৳)" style={styles.input} value={itemForm.price} onChange={e => setItemForm({...itemForm, price: e.target.value})} required />)}
                         {itemForm.price_type === 'quantity' && (
                             <div>
                                 {priceOptions.map((opt, i) => (
-                                    <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
-                                        <input placeholder="Size (e.g. 1:1)" style={styles.input} value={opt.qty} onChange={e => {
-                                            let newOpt = [...priceOptions]; newOpt[i].qty = e.target.value; setPriceOptions(newOpt);
-                                        }} required />
-                                        <input placeholder="Price" type="number" style={styles.input} value={opt.price} onChange={e => {
-                                            let newOpt = [...priceOptions]; newOpt[i].price = e.target.value; setPriceOptions(newOpt);
-                                        }} required />
-                                    </div>
+                                    <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}><input placeholder="Size (e.g. 1:1)" style={styles.input} value={opt.qty} onChange={e => { let newOpt = [...priceOptions]; newOpt[i].qty = e.target.value; setPriceOptions(newOpt); }} required /><input placeholder="Price" type="number" style={styles.input} value={opt.price} onChange={e => { let newOpt = [...priceOptions]; newOpt[i].price = e.target.value; setPriceOptions(newOpt); }} required /></div>
                                 ))}
                                 <button type="button" onClick={() => setPriceOptions([...priceOptions, {qty:'', price:''}])} style={addMoreBtn}>+ Add Option</button>
                             </div>
                         )}
-
                         <label style={lbl}>Ingredients (Inventory)</label>
                         {ingredients.map((ing, idx) => (
                             <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
-                                <select style={{ ...styles.input, flex: 2 }} value={ing.inventory_id} onChange={e => {
-                                    let n = [...ingredients]; n[idx].inventory_id = e.target.value; setIngredients(n);
-                                }}>
-                                    <option value="">Select Ingredient</option>
-                                    {inventory.map(i => <option key={i.id} value={i.id}>{i.item_name}</option>)}
-                                </select>
-                                <input placeholder="Qty" style={{ ...styles.input, flex: 1 }} value={ing.quantity} onChange={e => {
-                                    let n = [...ingredients]; n[idx].quantity = e.target.value; setIngredients(n);
-                                }} />
+                                <select style={{ ...styles.input, flex: 2 }} value={ing.inventory_id} onChange={e => { let n = [...ingredients]; n[idx].inventory_id = e.target.value; setIngredients(n); }}><option value="">Select Ingredient</option>{inventory.map(i => <option key={i.id} value={i.id}>{i.item_name}</option>)}</select>
+                                <input placeholder="Qty" style={{ ...styles.input, flex: 1 }} value={ing.quantity} onChange={e => { let n = [...ingredients]; n[idx].quantity = e.target.value; setIngredients(n); }} />
                             </div>
                         ))}
                         <button type="button" onClick={() => setIngredients([...ingredients, {inventory_id:'', quantity:''}])} style={addMoreBtn}>+ Add Ingredient</button>
-
                         <label style={lbl}>Image {isEditingItem ? '(Optional if keeping old)' : '(Mandatory)'}</label>
                         <input type="file" style={styles.input} onChange={e => setItemForm({...itemForm, image: e.target.files[0]})} required={!isEditingItem} />
-
                         <button type="submit" style={{ ...styles.button, backgroundColor: res.accent_color, borderRadius: '50px' }}>SAVE ITEM</button>
                         <button type="button" onClick={() => setShowItemModal(false)} style={{ ...styles.button, background: '#444', borderRadius: '50px' }}>CANCEL</button>
                     </form>
@@ -300,7 +306,10 @@ const MenuManagement = ({ role }) => {
     );
 };
 
-// Styles
+// Logic for manual category function
+const openAddCategory = (e) => {}; // Placeholder to avoid UNDEF error if called incorrectly
+
+// Shared Styles
 const delBtnWhite = { background: 'white', color: '#ff4d4d', border: '1px solid #eee', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', fontSize: '12px' };
 const editBtnStyle = { background: '#eee', border: '1px solid #ccc', cursor: 'pointer', padding: '5px 12px', borderRadius: '50px', fontSize: '11px', fontFamily: 'Verdana', fontWeight: 'bold' };
 const tagStyle = { color: 'white', fontSize: '9px', fontWeight: 'bold', padding: '3px 8px', borderRadius: '12px', textTransform: 'uppercase' };

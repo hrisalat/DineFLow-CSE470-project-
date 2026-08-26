@@ -16,6 +16,7 @@ class Employee extends Model
         'position', 
         'salary', 
         'photo', 
-        'unique_id'
+        'unique_id',
+        'password'
     ];
 }

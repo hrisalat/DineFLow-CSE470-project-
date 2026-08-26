@@ -39,7 +39,10 @@ const Dashboard = () => {
             fontFamily: 'Verdana',
             margin: 0
         }
+
+        
     };
+    
 
     return (
         <div style={styles.app}>

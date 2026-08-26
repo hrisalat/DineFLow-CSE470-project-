@@ -1,6 +1,6 @@
 // src/styles/theme.js
 export const styles = {
-    app: { fontFamily: 'Verdana, Geneva, sans-serif', backgroundColor: '#f4f7f6', minHeight: '100vh', color: '#333' },
+    app: { fontFamily: 'Arial', backgroundColor: '#f4f7f6', minHeight: '100vh', color: '#333' },
     container: { display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '100px', paddingBottom: '50px' },
     authContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px' },
     card: { background: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', width: '100%', maxWidth: '450px' },
