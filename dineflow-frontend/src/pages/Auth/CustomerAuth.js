@@ -20,7 +20,7 @@ const CustomerAuth = () => {
             if (result.data.status === 'success') {
                 // FIXED: Now saving the ID along with name and phone
                 localStorage.setItem('customer', JSON.stringify({
-                    id: result.data.user.id,    // <--- THIS IS THE CRITICAL LINE
+                    id: result.data.user.id,   
                     name: result.data.user.name,
                     phone: result.data.user.phone,
                     role: 'customer'

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/TopBar';
@@ -15,87 +15,114 @@ const Checkout = ({ mode }) => {
     const [paymentMethod, setPaymentMethod] = useState(''); 
     const [cashReceived, setCashReceived] = useState('');
     
+    // COUPON STATES
+    const [coupons, setCoupons] = useState([]); // FIXED: Added missing coupons state
+    const [couponCode, setCouponCode] = useState('');
+    const [discount, setDiscount] = useState(0);
+
+    // FETCH COUPONS ON LOAD
+    useEffect(() => {
+        if (res.id) {
+            axios.get(`http://localhost:8000/api/coupons/${res.id}`)
+                .then(response => setCoupons(response.data))
+                .catch(err => console.error("Failed to load coupons"));
+        }
+    }, [res.id]);
+
     const handleRemoveItem = (index) => {
         const newCart = [...cart];
         newCart.splice(index, 1);
         setCart(newCart);
         localStorage.setItem('cart', JSON.stringify(newCart));
-        // Force a small refresh to update TopBar count if necessary
+        if (newCart.length === 0) setDiscount(0); // Reset discount if cart emptied
     };
 
-    const totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+    const subTotal = cart.reduce((acc, item) => acc + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+    const finalTotal = subTotal - discount;
 
-    
-    const savedCustomer = JSON.parse(localStorage.getItem('customer'));
+    const applyCoupon = () => {
+        const foundCoupon = coupons.find(c => c.code.trim().toUpperCase() === couponCode.trim().toUpperCase());
 
-const orderData = {
-    restaurant_id: res.id,
-    customer_name: mode === 'kiosk' ? info.name : savedCustomer?.name,
-    customer_phone: mode === 'kiosk' ? info.phone : savedCustomer?.phone, // MUST be phone
-    service_type: serviceType,
-    total_price: totalPrice,
-    payment_method: paymentMethod,
-    items: cart 
-};
-const handleConfirm = async () => {
-    if (cart.length === 0) return alert("Cart is empty");
-    if (!paymentMethod) return alert("Select a payment method");
-     const cleanAmount = parseFloat(totalPrice).toFixed(2);
+        if (foundCoupon) {
+            if (subTotal >= parseFloat(foundCoupon.min_purchase)) {
+                setDiscount(parseFloat(foundCoupon.discount_amount));
+                alert(`✅ Coupon Applied! ৳${foundCoupon.discount_amount} off.`);
+            } else {
+                alert(`❌ This coupon requires a minimum purchase of ৳${foundCoupon.min_purchase}`);
+                setDiscount(0);
+            }
+        } else {
+            alert("❌ Invalid Coupon Code");
+            setDiscount(0);
+        }
+    };
 
-    // --- LOGIC FOR CASH ---
-    if (paymentMethod === 'cash') {
+    const isKiosk = mode === 'kiosk' || window.location.pathname.includes('kiosk');
+
+    const handleConfirm = async () => {
+        if (cart.length === 0) return alert("Your cart is empty!");
+        if (!paymentMethod) return alert("Please select a payment method");
+        
+        const customerName = isKiosk ? info.name : (customer?.name || info.name);
+        const customerPhone = isKiosk ? info.phone : (customer?.phone || info.phone);
+
+        if (!customerName || !customerPhone) {
+            return alert("Please enter your name and phone number to receive your order & SMS confirmation");
+        }
+
         const orderData = {
             restaurant_id: res.id,
-            customer_name: mode === 'kiosk' ? info.name : customer?.name,
-            customer_phone: mode === 'kiosk' ? info.phone : customer?.phone,
+            customer_name: customerName,
+            customer_phone: customerPhone,
             service_type: serviceType,
-            total_price: totalPrice,
-            payment_method: 'cash',
-            items: cart
+            total_price: finalTotal, // FIXED: Sends the discounted price
+            payment_method: paymentMethod,
+            items: cart 
         };
+
         try {
-            await axios.post('http://localhost:8000/api/orders', orderData);
-            alert("Order Confirmed (Cash)");
-            localStorage.removeItem('cart');
-            navigate(mode === 'kiosk' ? '/kiosk' : '/customer-website');
-        } catch (e) { alert("Error saving order"); }
-    } 
+            if (paymentMethod === 'bkash') {
+                // bKash logic
+                const amountToSend = parseFloat(finalTotal).toFixed(2);
+                localStorage.setItem('pending_bkash_order', JSON.stringify(orderData));
+                localStorage.setItem('pending_bkash_mode', isKiosk ? 'kiosk' : 'website');
 
-    // --- LOGIC FOR BKASH ---
-    // src/pages/Checkout.js
+                const response = await axios.post('http://localhost:8000/api/bkash/create', {
+                    total_price: amountToSend,
+                    customer_phone: orderData.customer_phone
+                });
 
-// src/pages/Checkout.js
-
- else  if (paymentMethod === 'bkash') {
-        try {
-            const response = await axios.post('http://localhost:8000/api/bkash/create', {
-                total_price: cleanAmount,
-                customer_phone: customer?.phone || info.phone
-            });
-
-            if (response.data.bkashURL) {
-                // REDIRECT TO PINK SCREEN
-                window.location.href = response.data.bkashURL;
+                if (response.data.bkashURL) {
+                    window.location.href = response.data.bkashURL;
+                } else {
+                    alert("bKash Error: " + (response.data.errorMessage || response.data.message || "Check credentials"));
+                }
             } else {
-                alert("bKash Error: " + (response.data.errorMessage || "Check credentials"));
-                console.log(response.data);
+                // Cash logic
+                const response = await axios.post('http://localhost:8000/api/orders', orderData);
+                if (response.data.status === 'success') {
+                    const orderId = response.data.order_id;
+                    const smsStatus = response.data.notification?.sms_sent 
+                        ? "SMS sent to " + customerPhone 
+                        : "Confirmation recorded for " + customerPhone;
+
+                    alert(`✅ Order Confirmed! ID: #DF-${orderId}\n📱 ${smsStatus}`);
+                    localStorage.removeItem('cart');
+
+                    if (isKiosk) {
+                        navigate('/kiosk');
+                    } else {
+                        navigate('/customer-order-progress');
+                    }
+                }
             }
         } catch (err) {
-            alert("Backend Failure: Check Laravel Terminal or phpMyAdmin logs.");
+            console.error("Order submission error:", err);
+            alert("Error saving order. Check console.");
         }
-    
-}
-};
-    const pillBtn = { 
-        padding: '12px 25px', 
-        borderRadius: '50px', 
-        border: '1px solid #ddd', 
-        cursor: 'pointer', 
-        fontFamily: 'Verdana', 
-        fontWeight: 'bold', 
-        transition: '0.3s',
-        fontSize: '12px'
     };
+
+    const pillBtn = { padding: '12px 25px', borderRadius: '50px', border: '1px solid #ddd', cursor: 'pointer', fontFamily: 'Verdana', fontWeight: 'bold', transition: '0.3s', fontSize: '12px' };
 
     return (
         <div style={styles.app}>
@@ -104,46 +131,59 @@ const handleConfirm = async () => {
                 <div style={styles.wideCard}>
                     <h2 style={{ fontFamily: 'Verdana', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>Checkout Summary</h2>
                     
-                    {cart.length === 0 ? (
-                        <p style={{textAlign: 'center', padding: '40px', color: '#999'}}>Your cart is empty.</p>
-                    ) : (
-                        cart.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 0', borderBottom: '1px solid #f4f4f4' }}>
-                                <div style={{ flex: 1 }}>
-                                    <strong style={{fontSize: '16px'}}>{item.name}</strong> <small style={{color: '#666'}}>({item.variant})</small>
-                                    {item.note && <p style={{ fontSize: '11px', color: res.accent_color, margin: '5px 0' }}>Note: {item.note}</p>}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                    <span style={{fontFamily: 'Verdana'}}>{item.quantity} x ৳{item.price} = <b>৳{item.quantity * item.price}</b></span>
-                                    <button 
-                                        onClick={() => handleRemoveItem(idx)} 
-                                        style={{ background: 'white', color: '#ff4d4d', border: '1px solid #eee', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}
-                                    >
-                                        ❌
-                                    </button>
-                                </div>
+                    {cart.map((item, idx) => (
+                        <div key={idx} style={itemRowStyle}>
+                            <div style={{ flex: 1 }}>
+                                <strong>{item.name}</strong> <small>({item.variant})</small>
+                                {item.note && <p style={{ fontSize: '11px', color: res.accent_color, margin: '5px 0' }}>Note: {item.note}</p>}
                             </div>
-                        ))
-                    )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                <span>{item.quantity} x ৳{item.price} = <b>৳{item.quantity * item.price}</b></span>
+                                <button onClick={() => handleRemoveItem(idx)} style={deleteBtnStyle}>❌</button>
+                            </div>
+                        </div>
+                    ))}
 
-                    <h3 style={{ textAlign: 'right', marginTop: '20px', fontSize: '22px' }}>Total: ৳{totalPrice}</h3>
+                    <div style={{ textAlign: 'right', marginTop: '20px' }}>
+                        <p style={{ color: '#888', margin: 0 }}>Subtotal: ৳{subTotal}</p>
+                        {discount > 0 && <p style={{ color: 'green', margin: 0 }}>Coupon Discount: -৳{discount}</p>}
+                        <h3 style={{ fontSize: '24px', marginTop: '5px' }}>Total Amount: ৳{finalTotal}</h3>
+                    </div>
 
                     <div style={{ marginTop: '30px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-                        {mode === 'kiosk' ? (
+                        
+                        {/* COUPON SECTION */}
+                        <label style={lbl}>Discount Coupon</label>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '25px' }}>
+                            <input 
+                                style={{ ...styles.input, flex: 3, margin: 0 }} 
+                                placeholder="Enter code (e.g. SAVE10)" 
+                                value={couponCode}
+                                onChange={e => setCouponCode(e.target.value)} 
+                            />
+                            <button onClick={applyCoupon} style={{ ...styles.button, flex: 1, backgroundColor: '#333', margin: 0, borderRadius: '8px' }}>APPLY</button>
+                        </div>
+
+                        {isKiosk || !customer ? (
                             <>
-                                <label style={lbl}>Customer Details</label>
-                                <input style={styles.input} placeholder="Enter Your Name" onChange={e => setInfo({...info, name: e.target.value})} />
-                                <input style={styles.input} placeholder="Enter Phone Number" onChange={e => setInfo({...info, phone: e.target.value})} />
+                                <label style={lbl}>Customer Details (for SMS Order Updates)</label>
+                                <input 
+                                    style={styles.input} 
+                                    placeholder="Enter Your Name" 
+                                    value={info.name}
+                                    onChange={e => setInfo({...info, name: e.target.value})} 
+                                />
+                                <input 
+                                    style={styles.input} 
+                                    placeholder="Enter Phone Number (e.g. 01712345678)" 
+                                    value={info.phone}
+                                    onChange={e => setInfo({...info, phone: e.target.value})} 
+                                />
                             </>
-                        ) : !customer ? (
-                            <div style={{ padding: '20px', textAlign: 'center', background: '#fff9c4', borderRadius: '12px', marginBottom: '20px' }}>
-                                <p style={{fontWeight: 'bold', margin: '0 0 10px 0'}}>You are checking out as a Guest.</p>
-                                <p style={{fontSize: '12px', marginBottom: '15px'}}>Sign in to save this order to your purchase history.</p>
-                                <button onClick={() => navigate('/customer-auth')} style={{...styles.button, width: 'auto', padding: '10px 30px', backgroundColor: '#333'}}>GO TO SIGN IN</button>
-                            </div>
                         ) : (
-                            <div style={{marginBottom: '20px'}}>
-                                <p>Ordering as: <b>{customer.name}</b> ({customer.phone})</p>
+                            <div style={{marginBottom: '20px', background: '#f8f9fa', padding: '12px', borderRadius: '8px'}}>
+                                <p style={{margin: 0}}>Ordering as: <b>{customer.name}</b> ({customer.phone})</p>
+                                <small style={{color: '#666'}}>Order confirmation & tracking SMS will be sent to this number.</small>
                             </div>
                         )}
 
@@ -162,9 +202,9 @@ const handleConfirm = async () => {
                         {paymentMethod === 'cash' && (
                             <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '8px' }}>
                                 <label style={{fontSize: '12px', fontWeight: 'bold'}}>Cash Received</label>
-                                <input type="number" style={styles.input} placeholder="Amount received from customer" onChange={e => setCashReceived(e.target.value)} />
-                                {parseFloat(cashReceived) >= totalPrice && (
-                                    <p style={{ color: '#2e7d32', fontWeight: 'bold', marginTop: '10px' }}>Change to Return: ৳{(parseFloat(cashReceived) - totalPrice).toFixed(2)}</p>
+                                <input type="number" style={styles.input} placeholder="Amount received" onChange={e => setCashReceived(e.target.value)} />
+                                {parseFloat(cashReceived) >= finalTotal && (
+                                    <p style={{ color: '#2e7d32', fontWeight: 'bold', marginTop: '10px' }}>Change to Return: ৳{(parseFloat(cashReceived) - finalTotal).toFixed(2)}</p>
                                 )}
                             </div>
                         )}
@@ -180,6 +220,8 @@ const handleConfirm = async () => {
     );
 };
 
+const itemRowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 0', borderBottom: '1px solid #f4f4f4' };
+const deleteBtnStyle = { background: 'white', color: '#ff4d4d', border: '1px solid #eee', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer' };
 const lbl = { fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#888', marginBottom: '10px', display: 'block' };
 
 export default Checkout;

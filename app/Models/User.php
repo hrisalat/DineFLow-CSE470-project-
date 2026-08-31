@@ -22,7 +22,8 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected $fillable = ['name', 'email', 'password', 'role', 'restaurant_id', 'phone'];
+    protected $fillable = [
+    'name', 'email', 'password', 'role', 'restaurant_id', 'phone', 'loyalty_points'];
 }
 
 

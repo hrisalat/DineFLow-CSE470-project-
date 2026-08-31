@@ -48,6 +48,17 @@ class InventoryController extends Controller {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+
+    public function getExpiredItems($res_id)
+        {
+            $today = now()->toDateString();
+            
+            $expiredItems = Inventory::where('restaurant_id', $res_id)
+                                    ->where('expiry_date', '<', $today)
+                                    ->get();
+
+            return response()->json($expiredItems);
+        }
     }
     
   

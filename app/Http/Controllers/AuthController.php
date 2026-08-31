@@ -50,7 +50,8 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
                 'role' => 'owner',
                 'restaurant_id' => $restaurant->id,
-                'phone' => $request->phone
+                'phone' => $request->phone,
+                 'loyalty_points' => $user->loyalty_points 
             ]);
 
             return response()->json(['status' => 'success']);
@@ -157,4 +158,18 @@ public function customerLogin(Request $request) {
             'message' => 'Account created successfully! Please log in.'
         ]);
     }
+
+    public function getLoyaltyPoints($id)
+        {
+            // Find the user in the 'users' table (your screenshot table)
+            $user = \App\Models\User::find($id);
+            
+            if ($user) {
+                return response()->json([
+                    'loyalty_points' => $user->loyalty_points // This matches your SQL column name
+                ]);
+            }
+            
+            return response()->json(['loyalty_points' => 0], 404);
+        }
 }

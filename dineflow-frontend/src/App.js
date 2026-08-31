@@ -11,6 +11,7 @@ import AdminAuth from './pages/Auth/AdminAuth';
 import EmployeeAuth from './pages/Auth/EmployeeAuth';
 import ExitPublicAuth from './pages/Auth/ExitPublicAuth';
 import CustomerAuth from './pages/Auth/CustomerAuth';
+import BkashCallback from './pages/Auth/BkashCallback';
 
 import Dashboard from './pages/Dashboards/Dashboard';
 import ManagerDashboard from './pages/Dashboards/ManagerDashboard'; // Imported ONCE
@@ -26,6 +27,20 @@ import MenuManagement from './pages/MenuManagement';
 import Checkout from './pages/Checkout';
 import PurchaseHistory from './pages/PurchaseHistory';
 import ReviewPage from './pages/ReviewPage';
+
+import StaffOrderProgress from './pages/StaffOrderProgress';
+import CustomerOrderProgress from './pages/CustomerOrderProgress';
+import OrderLookup from './pages/OrderLookup';
+
+import CouponManager from './pages/CouponManager';
+
+import WasteManagement from './pages/WasteManagement';
+
+import CustomerReservation from './pages/CustomerReservation';
+
+import StaffReservation from './pages/StaffReservation';
+
+import Finances from './pages/Finances';
 
 function App() {
     const res = JSON.parse(localStorage.getItem('restaurant')) || {};
@@ -62,6 +77,7 @@ function App() {
                     <Route path="/customer-website" element={<CustomerWebsite />} /> 
                     <Route path="/customer-auth" element={<CustomerAuth />} />
                     <Route path="/publicview" element={<CustomerWebsite />} />
+                    <Route path="/bkash-callback" element={<BkashCallback />} />
 
                     {/* 7. SHARED MODULES */}
                     <Route path="/inventory" element={<Inventory />} />
@@ -74,6 +90,18 @@ function App() {
                     <Route path="/manager-dashboard" element={<ManagerDashboard />} />
                     <Route path="/staff-dashboard" element={<StaffDashboard />} />
                     
+                    <Route path="/staff-order-progress" element={<StaffOrderProgress />} />
+                    <Route path="/customer-order-progress" element={<CustomerOrderProgress />} />     
+                    <Route path="/order-progress" element={<OrderLookup />} />
+
+                    <Route path="/coupons" element={<CouponManager />} />
+
+                    <Route path="/waste-management" element={<WasteManagement />} />
+
+                   <Route path="/customer-reservations" element={<CustomerReservation />} />
+                    <Route path="/staff-reservations" element={<StaffReservation />} />
+
+                    <Route path="/finances" element={<Finances />} />
                 </Routes>
             </div>
         </Router>

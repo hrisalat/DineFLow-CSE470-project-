@@ -9,15 +9,19 @@ const PurchaseHistory = () => {
     const res = JSON.parse(localStorage.getItem('restaurant')) || { accent_color: '#6366f1' };
 
     useEffect(() => {
-        if (customer.phone) {
-            axios.get(`http://localhost:8000/api/customer/history/${customer.phone}`)
-                .then(r => {
-                    console.log("Orders found:", r.data);
-                    setOrders(r.data);
-                })
-                .catch(e => alert("Could not load history"));
-        }
-    }, [customer.phone]);
+            const savedCustomer = JSON.parse(localStorage.getItem('customer'));
+            
+            if (savedCustomer && savedCustomer.phone) {
+                // DEBUG: Check what the browser is sending
+                console.log("Searching history for phone:", savedCustomer.phone);
+                
+                axios.get(`http://localhost:8000/api/customer/history/${savedCustomer.phone}`)
+                    .then(r => {
+                        console.log("History found on server:", r.data);
+                        setOrders(r.data);
+                    });
+            }
+        }, []);
 
     return (
         <div style={styles.app}>

@@ -21,10 +21,18 @@ const Inventory = () => {
     });
 
     // 2. UNIT-BASED THRESHOLD LOGIC
-    const getStockStatus = (item) => {
+        const getStockStatus = (item) => {
+        const today = new Date().toISOString().split('T')[0];
         const qty = parseFloat(item.quantity || 0);
         const unit = item.unit?.toLowerCase();
-        
+
+        // 1. CHECK EXPIRATION FIRST
+       
+        if (item.expiry_date && item.expiry_date < today) {
+            return { label: "EXPIRED", color: "white", bg: "#ff4d4d" };
+        }
+
+        // 2. CHECK EMPTY/LOW STOCK
         let threshold = 0;
         if (unit === 'kg') threshold = 1;
         else if (unit === 'pieces') threshold = 5;
@@ -36,6 +44,7 @@ const Inventory = () => {
 
         if (qty <= 0) return { label: "EMPTY", color: "#721c24", bg: "#f8d7da" };
         if (qty <= threshold) return { label: "LOW STOCK", color: "#856404", bg: "#fff3cd" };
+        
         return { label: "OK", color: "#155724", bg: "#d4edda" };
     };
 
