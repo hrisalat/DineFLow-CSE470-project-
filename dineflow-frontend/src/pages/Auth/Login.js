@@ -16,7 +16,8 @@ const Login = () => {
             localStorage.setItem('restaurant', JSON.stringify(res.data.restaurant));
             navigate('/dashboard');
         } catch (err) { 
-            alert("Login Failed: Check credentials"); 
+            const errorMsg = err.response?.data?.message || "Login Failed: Check credentials";
+            alert(errorMsg); 
         }
     };
 

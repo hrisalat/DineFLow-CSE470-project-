@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { generateReceiptPdf } from '../../utils/generateReceiptPdf';
 
 const BkashCallback = () => {
     const navigate = useNavigate();
@@ -14,25 +15,33 @@ const BkashCallback = () => {
         const handleCallback = async () => {
             const params = new URLSearchParams(location.search);
             const status = params.get('status');
+            const paymentID = params.get('paymentID');
+            const amount = params.get('amount');
             const pendingMode = localStorage.getItem('pending_bkash_mode') || 'website';
             const rawOrder = localStorage.getItem('pending_bkash_order');
 
-            if (status === 'success') {
+            if (status === 'success' || !status) {
                 try {
+                    // Call executePayment API if paymentID exists
+                    if (paymentID) {
+                        try {
+                            await axios.post('http://localhost:8000/api/bkash/execute', {
+                                paymentID: paymentID,
+                                amount: amount
+                            });
+                        } catch (execErr) {
+                            console.warn("bKash execute warning:", execErr);
+                        }
+                    }
+
+                    let createdOrderId = null;
                     if (rawOrder) {
                         const orderData = JSON.parse(rawOrder);
                         const response = await axios.post('http://localhost:8000/api/orders', orderData);
                         
                         if (response.data.status === 'success') {
-                            const orderId = response.data.order_id;
-                            const smsStatus = response.data.notification?.sms_sent 
-                                ? "SMS sent to " + (orderData.customer_phone || "your phone")
-                                : "Confirmation recorded for " + (orderData.customer_phone || "your phone");
-
-                            alert(`✅ Payment Received via bKash!\nOrder Confirmed ID: #DF-${orderId}\n📱 ${smsStatus}`);
+                            createdOrderId = response.data.order_id;
                         }
-                    } else {
-                        alert("✅ Payment Received via bKash! Order Confirmed.");
                     }
 
                     // Clean up stored state
@@ -41,8 +50,16 @@ const BkashCallback = () => {
                     localStorage.removeItem('pending_bkash_mode');
 
                     if (pendingMode === 'kiosk') {
-                        navigate('/kiosk');
+                        if (createdOrderId) {
+                            navigate(`/kiosk-receipt/${createdOrderId}`);
+                        } else {
+                            navigate('/kiosk');
+                        }
                     } else {
+                        alert("✅ Payment Received via bKash! Order Confirmed.\nDownloading your receipt...");
+                        if (createdOrderId && rawOrder) {
+                            generateReceiptPdf({ ...JSON.parse(rawOrder), id: createdOrderId });
+                        }
                         navigate('/customer-order-progress');
                     }
                 } catch (err) {

@@ -115,6 +115,13 @@ public function deleteEmployee($id)
                 $restaurant->save();
             }
 
+            // 3. Handle bKash QR Code Upload if provided
+            if ($request->hasFile('bkash_qr_code')) {
+                $path = $request->file('bkash_qr_code')->store('bkash_qr', 'public');
+                $restaurant->bkash_qr_code = $path;
+                $restaurant->save();
+            }
+
             // 3. Update the Owner User (matching the primary email)
             $owner = User::where('restaurant_id', $id)->where('role', 'owner')->first();
             if ($owner) {

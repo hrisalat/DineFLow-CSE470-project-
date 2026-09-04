@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import TopBar from '../components/TopBar';
 import { styles } from '../styles/theme';
+import { generateReceiptPdf } from '../utils/generateReceiptPdf';
 
 const Checkout = ({ mode }) => {
     const navigate = useNavigate();
@@ -67,7 +68,7 @@ const Checkout = ({ mode }) => {
         const customerPhone = isKiosk ? info.phone : (customer?.phone || info.phone);
 
         if (!customerName || !customerPhone) {
-            return alert("Please enter your name and phone number to receive your order & SMS confirmation");
+            return alert("Please enter your name and phone number to complete your order");
         }
 
         const orderData = {
@@ -81,11 +82,11 @@ const Checkout = ({ mode }) => {
         };
 
         try {
-            if (paymentMethod === 'bkash') {
-                // bKash logic
+            if (paymentMethod === 'bkash' && !isKiosk) {
+                // Public view bKash logic -> redirect to bKash Sandboxed API page
                 const amountToSend = parseFloat(finalTotal).toFixed(2);
                 localStorage.setItem('pending_bkash_order', JSON.stringify(orderData));
-                localStorage.setItem('pending_bkash_mode', isKiosk ? 'kiosk' : 'website');
+                localStorage.setItem('pending_bkash_mode', 'website');
 
                 const response = await axios.post('http://localhost:8000/api/bkash/create', {
                     total_price: amountToSend,
@@ -98,20 +99,17 @@ const Checkout = ({ mode }) => {
                     alert("bKash Error: " + (response.data.errorMessage || response.data.message || "Check credentials"));
                 }
             } else {
-                // Cash logic
+                // Cash logic OR Kiosk bKash logic
                 const response = await axios.post('http://localhost:8000/api/orders', orderData);
                 if (response.data.status === 'success') {
                     const orderId = response.data.order_id;
-                    const smsStatus = response.data.notification?.sms_sent 
-                        ? "SMS sent to " + customerPhone 
-                        : "Confirmation recorded for " + customerPhone;
-
-                    alert(`✅ Order Confirmed! ID: #DF-${orderId}\n📱 ${smsStatus}`);
                     localStorage.removeItem('cart');
 
                     if (isKiosk) {
-                        navigate('/kiosk');
+                        navigate(`/kiosk-receipt/${orderId}`);
                     } else {
+                        alert(`✅ Order Confirmed! ID: #DF-${orderId}\nDownloading your receipt...`);
+                        generateReceiptPdf({ ...orderData, id: orderId });
                         navigate('/customer-order-progress');
                     }
                 }
@@ -166,7 +164,7 @@ const Checkout = ({ mode }) => {
 
                         {isKiosk || !customer ? (
                             <>
-                                <label style={lbl}>Customer Details (for SMS Order Updates)</label>
+                                <label style={lbl}>Customer Details</label>
                                 <input 
                                     style={styles.input} 
                                     placeholder="Enter Your Name" 
@@ -183,7 +181,7 @@ const Checkout = ({ mode }) => {
                         ) : (
                             <div style={{marginBottom: '20px', background: '#f8f9fa', padding: '12px', borderRadius: '8px'}}>
                                 <p style={{margin: 0}}>Ordering as: <b>{customer.name}</b> ({customer.phone})</p>
-                                <small style={{color: '#666'}}>Order confirmation & tracking SMS will be sent to this number.</small>
+                                <small style={{color: '#666'}}>Order confirmation details will be saved for this order.</small>
                             </div>
                         )}
 
@@ -206,6 +204,29 @@ const Checkout = ({ mode }) => {
                                 {parseFloat(cashReceived) >= finalTotal && (
                                     <p style={{ color: '#2e7d32', fontWeight: 'bold', marginTop: '10px' }}>Change to Return: ৳{(parseFloat(cashReceived) - finalTotal).toFixed(2)}</p>
                                 )}
+                            </div>
+                        )}
+
+                        {paymentMethod === 'bkash' && isKiosk && (
+                            <div style={{ marginTop: '20px', background: '#fff0f6', padding: '20px', borderRadius: '12px', border: '1px solid #ffadd2', textAlign: 'center' }}>
+                                <h4 style={{ color: '#E2136E', margin: '0 0 10px 0', fontFamily: 'Verdana' }}>bKash Payment (Kiosk)</h4>
+                                <p style={{ fontSize: '13px', color: '#555', marginBottom: '15px' }}>Scan the QR code below using your <b>bKash App</b> to pay <b>৳{finalTotal}</b></p>
+                                
+                                {res.bkash_qr_code ? (
+                                    <div style={{ display: 'inline-block', background: 'white', padding: '10px', borderRadius: '10px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                                        <img 
+                                            src={`http://localhost:8000/storage/${res.bkash_qr_code}`} 
+                                            alt="bKash Merchant QR Code" 
+                                            style={{ width: '200px', height: '200px', objectFit: 'contain' }} 
+                                        />
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'inline-block', background: 'white', padding: '20px', borderRadius: '10px', border: '2px dashed #E2136E' }}>
+                                        <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#E2136E', margin: 0 }}>📱 bKash Merchant QR Code</p>
+                                        <p style={{ fontSize: '12px', color: '#888', margin: '5px 0 0 0' }}>(Admin has not uploaded a custom QR code yet)</p>
+                                    </div>
+                                )}
+                                <p style={{ fontSize: '11px', color: '#888', marginTop: '15px' }}>After scanning & paying, click <b>CONFIRM ORDER</b> to get your receipt.</p>
                             </div>
                         )}
 

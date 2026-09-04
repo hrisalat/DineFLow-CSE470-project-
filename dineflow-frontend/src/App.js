@@ -22,6 +22,7 @@ import AdminProfile from './pages/AdminProfile';
 import Inventory from './pages/Inventory';
 import RoleSelection from './pages/RoleSelection';
 import KioskMode from './pages/KioskMode';
+import KioskReceipt from './pages/KioskReceipt';
 import CustomerWebsite from './pages/CustomerWebsite';
 import MenuManagement from './pages/MenuManagement';
 import Checkout from './pages/Checkout';
@@ -73,6 +74,7 @@ function App() {
 
                     {/* 6. KIOSK & CUSTOMER WEBSITE */}
                     <Route path="/kiosk" element={<KioskMode />} />
+                    <Route path="/kiosk-receipt/:orderId" element={<KioskReceipt />} />
                     <Route path="/exit-public-auth" element={<ExitPublicAuth />} />
                     <Route path="/customer-website" element={<CustomerWebsite />} /> 
                     <Route path="/customer-auth" element={<CustomerAuth />} />

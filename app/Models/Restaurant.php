@@ -14,6 +14,6 @@ class Restaurant extends Model
         'accent_color', 
         'logo',
         'is_website_active',
-        'slug'
+        'bkash_qr_code',
     ];
 }

@@ -17,6 +17,7 @@ const AdminProfile = () => {
     });
     
     const [logo, setLogo] = useState(null);
+    const [bkashQr, setBkashQr] = useState(null);
     const [webActive, setWebActive] = useState(res.is_website_active);
 
     // 2. HELPER: COLOR VALIDATION
@@ -48,6 +49,7 @@ const AdminProfile = () => {
         const data = new FormData();
         Object.keys(formData).forEach(k => data.append(k, formData[k]));
         if (logo) data.append('logo', logo);
+        if (bkashQr) data.append('bkash_qr_code', bkashQr);
 
         try {
             const result = await axios.post(`http://localhost:8000/api/restaurant/update/${res.id}`, data);
@@ -131,6 +133,19 @@ const AdminProfile = () => {
                         <label style={lbl}>Update Logo</label>
                         <input type="file" onChange={e => setLogo(e.target.files[0])} style={{ marginBottom: '15px', marginTop: '5px' }} />
                         
+                        <label style={lbl}>bKash Payment QR Code (for Kiosk Checkout)</label>
+                        {res.bkash_qr_code && (
+                            <div style={{ margin: '10px 0' }}>
+                                <p style={{ fontSize: '11px', color: '#666', margin: '0 0 5px 0' }}>Current QR Code:</p>
+                                <img 
+                                    src={`http://localhost:8000/storage/${res.bkash_qr_code}`} 
+                                    alt="bKash QR Code" 
+                                    style={{ width: '120px', height: '120px', objectFit: 'contain', border: '1px solid #ddd', borderRadius: '8px', padding: '5px' }} 
+                                />
+                            </div>
+                        )}
+                        <input type="file" accept="image/*" onChange={e => setBkashQr(e.target.files[0])} style={{ marginBottom: '15px', marginTop: '5px', display: 'block' }} />
+
                         <button type="submit" style={{ ...styles.button, backgroundColor: formData.color, borderRadius: '50px' }}>
                             SAVE CHANGES
                         </button>

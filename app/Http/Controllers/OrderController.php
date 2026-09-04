@@ -60,18 +60,9 @@ class OrderController extends Controller
 
                     \DB::commit();
 
-                    // Send SMS / WhatsApp notification to the customer
-                    $notificationResult = null;
-                    try {
-                        $notificationResult = \App\Services\SmsService::sendOrderConfirmation($order, $request->items ?? []);
-                    } catch (\Exception $smsEx) {
-                        Log::error("SMS dispatch error: " . $smsEx->getMessage());
-                    }
-
                     return response()->json([
                         'status' => 'success',
-                        'order_id' => $order->id,
-                        'notification' => $notificationResult
+                        'order_id' => $order->id
                     ]);
 
                 } catch (\Exception $e) {

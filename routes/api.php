@@ -60,6 +60,9 @@ Route::get('/customer/recommendations/{phone}', [App\Http\Controllers\OrderContr
 use App\Http\Controllers\BkashController;
 
 Route::post('/bkash/create', [BkashController::class, 'createPayment']);
+Route::post('/bkash/execute', [BkashController::class, 'executePayment']);
+Route::post('/bkash/query', [BkashController::class, 'queryPayment']);
+Route::post('/bkash/refund', [BkashController::class, 'refundPayment']);
 
 Route::get('/reviews/{res_id}', [ReviewController::class, 'index']);
 Route::post('/reviews', [ReviewController::class, 'store']);

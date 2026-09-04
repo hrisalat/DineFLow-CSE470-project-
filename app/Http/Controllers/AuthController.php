@@ -51,7 +51,7 @@ class AuthController extends Controller
                 'role' => 'owner',
                 'restaurant_id' => $restaurant->id,
                 'phone' => $request->phone,
-                 'loyalty_points' => $user->loyalty_points 
+                'loyalty_points' => 0
             ]);
 
             return response()->json(['status' => 'success']);
